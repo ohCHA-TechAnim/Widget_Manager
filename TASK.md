@@ -2,9 +2,13 @@ STATUS: WAITING_USER
 
 ---
 
-**9단계 완료 보고 — 코어 v0.1 완성. 다음 단계는?**
+**다크모드 버그 수정 + 9단계 완료 보고 — 코어 v0.1 완성. 다음 단계는?**
 
 완료된 내용:
+- **다크모드 버그 수정**: `views/month_view.py` `CalendarCell.paintEvent()` — QPalette.Window 밝기(`lightness() < 128`)로 다크/라이트 판별, 셀 배경·날짜색·테두리·+N 오버플로 색상 다크 모드 대응
+  - 셀 배경: 다크 시 #2D2D2D(일반) / #252525(다른달) / #1A3A5A(오늘)
+  - 날짜색: 다크 시 #CCCCCC(일반) / #666666(다른달) / #7FBFFF(오늘)
+  - 테두리: 다크 시 #555555(일반) / #4A90D9(오늘, 동일)
 - **9단계**: 트레이 상주 + 로깅 (`main.py` 수정)
   - `QSystemTrayIcon` — 16×16 파란 원 프로그래매틱 아이콘 (별도 파일 불필요)
   - `closeEvent` 오버라이드: ✕ 버튼 → 트레이 숨김 (종료 아님) + 풍선 알림
@@ -101,4 +105,5 @@ TaskHub_완전판_v2_소스포함.md — 기존 TaskHub 소스 (나중 단계에
 - **6단계 (2026-06-04)**: `core/settings.py` + `theme/light.qss` + `theme/dark.qss` + `theme/theme_manager.py`. 라이트/다크 토글, 포인트색 프리셋+직접 선택. 설정 settings.json 지속 저장.
 - **7단계 (2026-06-04)**: `core/settings.py` bg/deco 확장 + `views/month_view.py` 배경 이미지/GIF + 칸별 deco_image 썸네일 + 우클릭 메뉴. BgSettingsDialog 추가.
 - **8단계 (2026-06-04)**: `utils/math_utils.py` + `utils/coordinate_converter.py` + `utils/report_generator.py` 이식. `tests/test_math_utils.py` 20개 통과. `views/converter_view.py` + `views/report_dialog.py` 추가. `main.py` 좌표변환 탭 + 보고서 생성 메뉴 연결. python-docx 설치.
+- **다크모드 버그 수정 (2026-06-04)**: `views/month_view.py` — CalendarCell 셀 배경·날짜색·테두리 QPalette 기반 다크/라이트 대응. QPalette 임포트 추가.
 - **9단계 (2026-06-04)**: `main.py` — QSystemTrayIcon, closeEvent 오버라이드(✕=숨김), 트레이 메뉴(열기/보고서생성/설정/종료), 트레이 더블클릭 토글, setQuitOnLastWindowClosed(False), PyInstaller --windowed 대비 로깅 처리.

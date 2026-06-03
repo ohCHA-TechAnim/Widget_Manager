@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import (
     QColor, QPainter, QPen, QBrush, QFont, QFontMetrics, QPixmap, QMovie,
+    QPalette,
 )
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel,
@@ -149,21 +150,25 @@ class CalendarCell(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
 
-        # 셀 배경 — bg_active 시 반투명 RGBA
+        # 팔레트 Window 색 밝기로 다크/라이트 판별
+        win_lum = self.palette().color(QPalette.ColorRole.Window).lightness()
+        is_dark = win_lum < 128
+
+        # 셀 배경 — bg_active 시 반투명 RGBA, 아니면 불투명
         if self._bg_active:
             if self.is_today:
-                bg = QColor(234, 244, 255, 210)
+                bg = QColor(30, 80, 160, 210) if is_dark else QColor(234, 244, 255, 210)
             elif self.is_other_month:
-                bg = QColor(245, 245, 245, 150)
+                bg = QColor(20, 20, 20, 150) if is_dark else QColor(245, 245, 245, 150)
             else:
-                bg = QColor(255, 255, 255, 185)
+                bg = QColor(35, 35, 35, 185) if is_dark else QColor(255, 255, 255, 185)
         else:
             if self.is_today:
-                bg = QColor("#EAF4FF")
+                bg = QColor("#1A3A5A") if is_dark else QColor("#EAF4FF")
             elif self.is_other_month:
-                bg = QColor("#F5F5F5")
+                bg = QColor("#252525") if is_dark else QColor("#F5F5F5")
             else:
-                bg = QColor("#FFFFFF")
+                bg = QColor("#2D2D2D") if is_dark else QColor("#FFFFFF")
         p.fillRect(0, 0, w, h, bg)
 
         # deco 이미지 썸네일 (하단 절반, 반투명)
@@ -180,7 +185,8 @@ class CalendarCell(QWidget):
             p.setOpacity(1.0)
 
         # 테두리
-        border_col = QColor("#C0C0C0") if not self.is_today else QColor("#4A90D9")
+        border_col = (QColor("#555555") if not self.is_today else QColor("#4A90D9")) if is_dark \
+            else (QColor("#C0C0C0") if not self.is_today else QColor("#4A90D9"))
         p.setPen(QPen(border_col, 1))
         p.drawRect(0, 0, w - 1, h - 1)
 
@@ -193,9 +199,14 @@ class CalendarCell(QWidget):
         if self.is_today:
             font.setBold(True)
         p.setFont(font)
-        day_color = QColor("#1A1A1A") if not self.is_other_month else QColor("#AAAAAA")
-        if self.is_today:
-            day_color = QColor("#0055CC")
+        if is_dark:
+            day_color = QColor("#CCCCCC") if not self.is_other_month else QColor("#666666")
+            if self.is_today:
+                day_color = QColor("#7FBFFF")
+        else:
+            day_color = QColor("#1A1A1A") if not self.is_other_month else QColor("#AAAAAA")
+            if self.is_today:
+                day_color = QColor("#0055CC")
         p.setPen(day_color)
         p.drawText(4, 2, w - 8, 18,
                    Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
@@ -231,7 +242,7 @@ class CalendarCell(QWidget):
 
         overflow = len(self.tasks) - shown
         if overflow > 0:
-            p.setPen(QColor("#888888"))
+            p.setPen(QColor("#AAAAAA") if is_dark else QColor("#888888"))
             font3 = QFont()
             font3.setPointSize(8)
             p.setFont(font3)
