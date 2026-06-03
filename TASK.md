@@ -1,4 +1,4 @@
-STATUS: WAITING_USER
+STATUS: PENDING
 
 ---
 
@@ -30,7 +30,8 @@ STATUS: WAITING_USER 로 바꾼 뒤 멈춰라.
 
 ## 💬 답변
 
-(사용자가 채웁니다)
+**A (한국어)** — 이 프로젝트는 한국어 기반이므로 A로 진행하라.
+이제 hello.py를 만들고 작업을 완료하라.
 
 ---
 
