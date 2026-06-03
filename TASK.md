@@ -1,4 +1,4 @@
-STATUS: WAITING_USER
+STATUS: PENDING
 
 ## 작업 지시
 
