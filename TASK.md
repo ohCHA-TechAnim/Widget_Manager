@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 작업 지시
 Widget_Manager 코어 v0.1 개발을 시작한다. 같은 폴더의 Widget_Manager_구현지시_1차.md가 전체 설계 문서다. 그 문서를 읽고 따르되, 원격 작업이므로 아래 진행 규칙을 지켜라.
@@ -52,6 +52,23 @@ TaskHub_완전판_v2_소스포함.md — 기존 TaskHub 소스 (나중 단계에
 💬 답변
 진행해
 
+---
+
+**7단계 완료 보고 — 8단계(순수 유틸 이식)로 진행할까요?**
+
+완료된 내용:
+- **7단계**: 꾸미기 — 배경 이미지/GIF + 칸별 deco_image
+  - `core/settings.py` — `bg_image`, `bg_opacity`, `deco_images` 필드 추가; `get/set/clear_deco_image()` 헬퍼
+  - `views/month_view.py`
+    - `BgSettingsDialog` — 파일 선택(이미지/GIF) + 밝기 슬라이더(10~100%) + 제거 버튼
+    - `CalendarCell` — deco_image 썸네일(하단 40% 반투명 표시), 우클릭 컨텍스트 메뉴(설정/제거), 배경 활성 시 `WA_TranslucentBackground`로 반투명 셀 전환
+    - `MonthView.paintEvent()` — `QPixmap`(정적) / `QMovie`(GIF 애니) 배경 렌더링, 밝기 opacity 적용
+    - nav bar에 **배경** 버튼 추가 → `BgSettingsDialog` 오픈
+  - `main.py` — `MonthView`에 `settings` 인스턴스 전달
+- 구문 검사 통과 (py 3.11), 앱 정상 실행 확인
+
+**질문**: 8단계(순수 유틸 이식 — `math_utils.py`, `coordinate_converter.py`, `report_generator.py` + 탭/메뉴 연결)로 진행할까요?
+
 ✅ 완료 노트
 
 - **1단계 (2026-06-03)**: 폴더 골격 생성, PyQt6 6.11.0 설치, `main.py` 빈 창(920×640), `requirements.txt`, `.gitignore`, 로깅(`%APPDATA%\Widget_Manager\logs\`)
@@ -60,3 +77,4 @@ TaskHub_완전판_v2_소스포함.md — 기존 TaskHub 소스 (나중 단계에
 - **4단계 (2026-06-04)**: `views/task_dialog.py` — 기본 정보 탭(제목/기간/상태/우선순위/색상/메모) + 링크&첨부 탭(지라/폴더/파일). 수정 모드 삭제 버튼. `main.py` QInputDialog 제거.
 - **5단계 (2026-06-04)**: `views/list_view.py` + `views/kanban_view.py` + 뷰 토글 툴바. 드래그&드롭 상태 변경. QStackedWidget 전환.
 - **6단계 (2026-06-04)**: `core/settings.py` + `theme/light.qss` + `theme/dark.qss` + `theme/theme_manager.py`. 라이트/다크 토글, 포인트색 프리셋+직접 선택. 설정 settings.json 지속 저장.
+- **7단계 (2026-06-04)**: `core/settings.py` bg/deco 확장 + `views/month_view.py` 배경 이미지/GIF + 칸별 deco_image 썸네일 + 우클릭 메뉴. BgSettingsDialog 추가.
