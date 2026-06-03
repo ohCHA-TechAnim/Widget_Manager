@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
 
@@ -28,6 +28,36 @@ STATUS: PENDING
 
 **다음 단계: 3단계 — 자동 업데이트 + 시작프로그램 등록**
 진행해도 될까요?
+
+## ✅ 3단계 완료 보고 — 자동 업데이트 + 시작프로그램 등록
+
+완료된 내용:
+- `utils/startup.py` — `is_registered()` / `register()` / `unregister()`. HKCU `Software\Microsoft\Windows\CurrentVersion\Run` 레지스트리 키 사용. 패키지 환경이면 exe 경로, 개발 환경이면 `pythonw.exe main.py` 등록. `winreg` (stdlib, Windows 전용).
+- `core/updater.py` — `APP_VERSION = "0.1.0"`, `check_for_update()` (urllib, GitHub Releases API), `UpdateChecker(QThread)` — `update_available(dict)` 시그널 방출.
+- `views/settings_dialog.py` — `SettingsDialog`: 시작프로그램 체크박스(토글 즉시 반영), 업데이트 확인 버튼(동기 체크 → 새 버전 있으면 릴리즈 페이지 브라우저 오픈).
+- `main.py` 수정:
+  - `SettingsDialog`, `UpdateChecker` 임포트 추가
+  - 트레이 "설정" → `SettingsDialog` 열기 (기존: 창 표시만 했음)
+  - `MainWindow.__init__` 완료 후 `UpdateChecker` 스레드 시작 → 업데이트 있으면 트레이 풍선 알림
+  - `_on_update_available()` 핸들러 추가
+- 새 의존성 없음 (`urllib`, `winreg` 모두 stdlib)
+- 구문 검사 통과 (py 3.11)
+
+사용법:
+- **시작프로그램**: 트레이 → 설정 → "Windows 시작 시 자동 실행" 체크박스
+- **업데이트**: 시작 시 백그라운드 체크 (있으면 트레이 알림) + 설정 → "업데이트 확인" 버튼
+
+---
+
+**다음 단계: 코어 v0.1 완성 이후 계획은?**
+
+1. **QA / 버그 수정** — 실제 사용 중 발견된 문제
+2. **빌드 재패키징** — spec에 새 파일 반영 후 exe 재빌드
+3. **기타 기능 추가**
+
+진행해도 될까요?
+
+---
 
 ## 작업 지시
 
@@ -83,6 +113,7 @@ STATUS: PENDING
 
 
 
+- **3단계 (2026-06-04)**: `utils/startup.py` (레지스트리 시작프로그램 등록/해제) + `core/updater.py` (GitHub Releases API + UpdateChecker QThread) + `views/settings_dialog.py` (시작프로그램 토글 + 업데이트 확인 UI) + `main.py` (백그라운드 업데이트 체크, 트레이 알림, 설정 다이얼로그 연결).
 - **1단계 (2026-06-03)**: 폴더 골격 생성, PyQt6 6.11.0 설치, `main.py` 빈 창(920×640), `requirements.txt`, `.gitignore`, 로깅(`%APPDATA%\Widget_Manager\logs\`)
 - **2단계 (2026-06-03)**: `core/task_store.py` — 일감 데이터 구조, JSON 영속화(`%APPDATA%\Widget_Manager\data\tasks.json`), CRUD, 날짜 범위 쿼리, 옵저버 패턴, 유효성 검사. 단독 테스트 7개 통과.
 - **3단계 (2026-06-03)**: `views/month_view.py` — 6×7 격자 월 캘린더, 일감 막대, +N 오버플로, 오늘 강조, 이전/다음 네비게이션, 더블클릭/클릭 시그널. `main.py` 연결.

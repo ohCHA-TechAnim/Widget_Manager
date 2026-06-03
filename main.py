@@ -40,7 +40,9 @@ from views.converter_view import ConverterView
 from views.task_dialog import TaskDialog
 from views.report_dialog import ReportDialog
 from views.plugin_dialog import PluginDialog
+from views.settings_dialog import SettingsDialog
 from theme.theme_manager import ThemeManager, AccentPickerDialog
+from core.updater import UpdateChecker
 
 
 def _make_tray_icon() -> QIcon:
@@ -95,6 +97,11 @@ class MainWindow(QMainWindow):
         self._plugin_loader.init(ctx)
         self._plugin_loader.load_enabled(self._settings.get("enabled_plugins", []))
         self._refresh_plugin_menu()
+
+        # 시작 후 백그라운드에서 업데이트 체크
+        self._update_checker = UpdateChecker(self)
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.start()
 
         logger.info("메인 창 생성 완료")
 
@@ -197,8 +204,19 @@ class MainWindow(QMainWindow):
                 logger.debug("트레이 더블클릭 → 창 표시")
 
     def _on_open_settings(self):
-        """트레이 '설정' → 창 표시 (설정 컨트롤은 툴바에 있음)"""
-        self._show_window()
+        """트레이 '설정' → 설정 다이얼로그 열기"""
+        dlg = SettingsDialog(self)
+        dlg.exec()
+
+    def _on_update_available(self, info: dict):
+        """백그라운드 업데이트 체크 결과 — 트레이 풍선 알림"""
+        self._tray.showMessage(
+            "Widget Manager 업데이트",
+            f"새 버전 {info['version']}이(가) 있습니다. 설정 → 업데이트 확인을 눌러 주세요.",
+            QSystemTrayIcon.MessageIcon.Information,
+            5000,
+        )
+        logger.info("업데이트 알림: %s", info["version"])
 
     def _quit_app(self):
         """트레이 '종료' → 애플리케이션 완전 종료"""
