@@ -1,5 +1,23 @@
 STATUS: PENDING
 
+---
+
+**8단계 완료 보고 — 9단계(트레이 상주 + 로깅)로 진행할까요?**
+
+완료된 내용:
+- **8단계**: 순수 유틸 이식 + 탭/메뉴 연결
+  - `utils/math_utils.py` — `wrap_angle_180`, `shortest_rotator_delta`, `vector_delta`, `normalize_argb_hex`, `argb_to_css`, `count_workdays`, `ratio` 이식
+    - `wrap_angle_180`: 원본 공식의 경계값 버그(-180→-180) 수정 → (-180, 180] 규약 준수
+  - `utils/coordinate_converter.py` — DCC 좌표/단위 변환 (Unreal/Maya/3dsMax/Blender). 위치·스케일 정확, 회전 근사+경고
+  - `utils/report_generator.py` — 분기/연간 성과보고서(.docx). TaskStore 데이터 구조에 맞게 필드 매핑 조정
+  - `tests/__init__.py` + `tests/test_math_utils.py` — 20개 테스트 전체 통과
+  - `views/converter_view.py` — DCC 좌표변환 탭 뷰 (위치/스케일/회전 입력, 변환 결과 출력)
+  - `views/report_dialog.py` — 보고서 생성 다이얼로그 (연도/기간유형/분기/작성자 → Desktop에 .docx 저장)
+  - `main.py` — 툴바에 "좌표변환" 버튼(스택 4번째), 메뉴바 "도구 → 보고서 생성..." 추가
+  - `python-docx 1.2.0` 설치, 구문 검사 통과, 테스트 20/20 통과
+
+**질문**: 9단계(트레이 상주 — ✕=종료 아닌 트레이 숨김, 트레이 메뉴: 열기/보고서생성/설정/종료)로 진행할까요?
+
 작업 지시
 Widget_Manager 코어 v0.1 개발을 시작한다. 같은 폴더의 Widget_Manager_구현지시_1차.md가 전체 설계 문서다. 그 문서를 읽고 따르되, 원격 작업이므로 아래 진행 규칙을 지켜라.
 이번 라운드 범위 (1라운드)
@@ -78,3 +96,4 @@ TaskHub_완전판_v2_소스포함.md — 기존 TaskHub 소스 (나중 단계에
 - **5단계 (2026-06-04)**: `views/list_view.py` + `views/kanban_view.py` + 뷰 토글 툴바. 드래그&드롭 상태 변경. QStackedWidget 전환.
 - **6단계 (2026-06-04)**: `core/settings.py` + `theme/light.qss` + `theme/dark.qss` + `theme/theme_manager.py`. 라이트/다크 토글, 포인트색 프리셋+직접 선택. 설정 settings.json 지속 저장.
 - **7단계 (2026-06-04)**: `core/settings.py` bg/deco 확장 + `views/month_view.py` 배경 이미지/GIF + 칸별 deco_image 썸네일 + 우클릭 메뉴. BgSettingsDialog 추가.
+- **8단계 (2026-06-04)**: `utils/math_utils.py` + `utils/coordinate_converter.py` + `utils/report_generator.py` 이식. `tests/test_math_utils.py` 20개 통과. `views/converter_view.py` + `views/report_dialog.py` 추가. `main.py` 좌표변환 탭 + 보고서 생성 메뉴 연결. python-docx 설치.
