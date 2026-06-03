@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QPushButton, QWidget,
-    QSizePolicy,
+    QSizePolicy, QMenuBar,
 )
 
 from core.task_store import TaskStore
@@ -28,7 +28,9 @@ from core.settings import Settings
 from views.month_view import MonthView
 from views.list_view import ListView
 from views.kanban_view import KanbanView
+from views.converter_view import ConverterView
 from views.task_dialog import TaskDialog
+from views.report_dialog import ReportDialog
 from theme.theme_manager import ThemeManager, AccentPickerDialog
 
 
@@ -42,15 +44,19 @@ class MainWindow(QMainWindow):
         self._store = TaskStore()
         self._settings = theme_manager._settings
 
-        # 뷰 스택 (0=월, 1=목록, 2=칸반)
+        # 뷰 스택 (0=월, 1=목록, 2=칸반, 3=좌표변환)
         self._stack = QStackedWidget()
         self._month_view = MonthView(self._store, self._settings)
         self._list_view = ListView(self._store)
         self._kanban_view = KanbanView(self._store)
+        self._converter_view = ConverterView()
         self._stack.addWidget(self._month_view)
         self._stack.addWidget(self._list_view)
         self._stack.addWidget(self._kanban_view)
+        self._stack.addWidget(self._converter_view)
         self.setCentralWidget(self._stack)
+
+        self._build_menubar()
 
         # 시그널 연결
         self._month_view.request_new_task.connect(self._on_new_task)
@@ -61,6 +67,12 @@ class MainWindow(QMainWindow):
         self._build_toolbar()
         logger.info("메인 창 생성 완료")
 
+    def _build_menubar(self):
+        menubar = self.menuBar()
+        tools_menu = menubar.addMenu("도구")
+        report_action = tools_menu.addAction("보고서 생성...")
+        report_action.triggered.connect(self._on_generate_report)
+
     def _build_toolbar(self):
         tb = self.addToolBar("메인")
         tb.setMovable(False)
@@ -70,7 +82,7 @@ class MainWindow(QMainWindow):
         btn_new.clicked.connect(self._on_add_task)
         tb.addWidget(btn_new)
         tb.addSeparator()
-        for idx, label in enumerate(["월 뷰", "목록", "칸반"]):
+        for idx, label in enumerate(["월 뷰", "목록", "칸반", "좌표변환"]):
             btn = QPushButton(label)
             btn.clicked.connect(lambda _, i=idx: self._stack.setCurrentIndex(i))
             tb.addWidget(btn)
@@ -111,6 +123,10 @@ class MainWindow(QMainWindow):
     def _on_new_task(self, clicked_date):
         """월 뷰 날짜 더블클릭 → 새 일감 다이얼로그."""
         dlg = TaskDialog(self._store, default_date=clicked_date, parent=self)
+        dlg.exec()
+
+    def _on_generate_report(self):
+        dlg = ReportDialog(self._store, parent=self)
         dlg.exec()
 
     def _on_edit_task(self, task_id):
