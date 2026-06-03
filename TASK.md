@@ -1,4 +1,4 @@
-STATUS: WAITING_USER
+STATUS: PENDING
 
 ## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
 
@@ -94,11 +94,7 @@ STATUS: WAITING_USER
 
 ## 💬 답변
 
-전부 다 진행하되 순서대로, 각 단계 후 WAITING_USER로 멈춰 보고해라.
-1. 플러그인/애드온 시스템 (core/plugin_loader.py + plugin_api.py)
-2. (1 확인 후) 배포/패키징 — PyInstaller로 exe 빌드
-3. (2 확인 후) 자동 업데이트 + 시작프로그램 등록
-순서 지켜라 — 배포/업데이트는 앱 완성 후 얹어야 버전 안 꼬인다.
+진행해
 
 ---
 
