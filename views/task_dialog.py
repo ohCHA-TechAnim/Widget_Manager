@@ -88,7 +88,11 @@ class TaskDialog(QDialog):
         btn_row = QHBoxLayout()
         if self._task:
             btn_del = QPushButton("삭제")
-            btn_del.setStyleSheet("color: #CC2222;")
+            btn_del.setStyleSheet(
+                "QPushButton { background-color: transparent; color: #CC2222;"
+                " border: 1px solid #CC2222; }"
+                "QPushButton:hover { background-color: #CC2222; color: #FFFFFF; }"
+            )
             btn_del.clicked.connect(self._on_delete)
             btn_row.addWidget(btn_del)
         btn_row.addStretch()

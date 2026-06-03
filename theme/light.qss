@@ -1,0 +1,231 @@
+/* ====== Widget Manager — 라이트 테마 ======
+   치환 변수 (theme_manager.py 런타임 교체):
+   {ACCENT}       - 포인트색  (예: #4A90D9)
+   {ACCENT_HOVER} - 포인트색 밝게
+   {ACCENT_DARK}  - 포인트색 어둡게
+   {ACCENT_TEXT}  - 포인트 위 텍스트 (흰/검)
+*/
+
+* {
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 9pt;
+    outline: 0;
+}
+
+QWidget {
+    background-color: #F5F5F5;
+    color: #1A1A1A;
+}
+
+QMainWindow {
+    background-color: #E8E8E8;
+}
+
+QDialog {
+    background-color: #F5F5F5;
+}
+
+/* ── 툴바 ── */
+QToolBar {
+    background-color: #E0E0E0;
+    border-bottom: 1px solid #C4C4C4;
+    padding: 3px 6px;
+    spacing: 4px;
+}
+
+/* ── 버튼 ── */
+QPushButton {
+    background-color: {ACCENT};
+    color: {ACCENT_TEXT};
+    border: none;
+    padding: 4px 14px;
+    border-radius: 3px;
+    min-height: 22px;
+}
+
+QPushButton:hover {
+    background-color: {ACCENT_HOVER};
+}
+
+QPushButton:pressed {
+    background-color: {ACCENT_DARK};
+}
+
+QPushButton:disabled {
+    background-color: #C8C8C8;
+    color: #888888;
+}
+
+/* ── 입력 필드 ── */
+QLineEdit,
+QTextEdit,
+QPlainTextEdit {
+    background-color: #FFFFFF;
+    color: #1A1A1A;
+    border: 1px solid #BFBFBF;
+    border-radius: 3px;
+    padding: 3px 6px;
+    selection-background-color: {ACCENT};
+    selection-color: {ACCENT_TEXT};
+}
+
+QLineEdit:focus,
+QTextEdit:focus {
+    border-color: {ACCENT};
+}
+
+/* ── 콤보박스 ── */
+QComboBox {
+    background-color: #FFFFFF;
+    color: #1A1A1A;
+    border: 1px solid #BFBFBF;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 22px;
+}
+
+QComboBox:focus {
+    border-color: {ACCENT};
+}
+
+QComboBox::drop-down {
+    border: none;
+    width: 18px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #FFFFFF;
+    border: 1px solid #BFBFBF;
+    selection-background-color: {ACCENT};
+    selection-color: {ACCENT_TEXT};
+}
+
+/* ── 날짜 입력 ── */
+QDateEdit {
+    background-color: #FFFFFF;
+    color: #1A1A1A;
+    border: 1px solid #BFBFBF;
+    border-radius: 3px;
+    padding: 3px 6px;
+    min-height: 22px;
+}
+
+QDateEdit:focus {
+    border-color: {ACCENT};
+}
+
+QDateEdit::drop-down {
+    border: none;
+    width: 18px;
+}
+
+/* ── 탭 ── */
+QTabWidget::pane {
+    border: 1px solid #C4C4C4;
+    background-color: #F5F5F5;
+}
+
+QTabBar::tab {
+    background-color: #D8D8D8;
+    color: #444444;
+    padding: 5px 16px;
+    border: 1px solid #C4C4C4;
+    border-bottom: none;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:selected {
+    background-color: #F5F5F5;
+    color: {ACCENT};
+    font-weight: bold;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: #E4E4E4;
+}
+
+/* ── 리스트 / 테이블 ── */
+QListWidget,
+QTableWidget {
+    background-color: #FFFFFF;
+    border: 1px solid #C4C4C4;
+    alternate-background-color: #F2F2F2;
+    gridline-color: #E0E0E0;
+}
+
+QListWidget::item:selected,
+QTableWidget::item:selected {
+    background-color: {ACCENT};
+    color: {ACCENT_TEXT};
+}
+
+QHeaderView::section {
+    background-color: #E0E0E0;
+    color: #333333;
+    padding: 4px 8px;
+    border: none;
+    border-right: 1px solid #C4C4C4;
+    border-bottom: 1px solid #C4C4C4;
+    font-weight: bold;
+}
+
+/* ── 스크롤바 ── */
+QScrollBar:vertical {
+    width: 10px;
+    background-color: #F0F0F0;
+    margin: 0;
+    border: none;
+}
+
+QScrollBar::handle:vertical {
+    background-color: #BBBBBB;
+    border-radius: 4px;
+    min-height: 20px;
+    margin: 1px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background-color: {ACCENT};
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+QScrollBar:horizontal {
+    height: 10px;
+    background-color: #F0F0F0;
+    margin: 0;
+    border: none;
+}
+
+QScrollBar::handle:horizontal {
+    background-color: #BBBBBB;
+    border-radius: 4px;
+    min-width: 20px;
+    margin: 1px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background-color: {ACCENT};
+}
+
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+
+/* ── 레이블 ── */
+QLabel {
+    background-color: transparent;
+    color: #1A1A1A;
+}
+
+/* ── 구분선 ── */
+QFrame[frameShape="4"],
+QFrame[frameShape="5"] {
+    color: #C4C4C4;
+}
