@@ -22,6 +22,9 @@ def _default_task(
     memo: str = "",
     color: str = "#4A90D9",
     source: str = "manual",
+    jiras: list | None = None,
+    folders: list | None = None,
+    attachments: list | None = None,
 ) -> dict:
     """새 일감 딕셔너리를 기본값으로 생성한다."""
     today = date.today().isoformat()
@@ -34,9 +37,9 @@ def _default_task(
         "priority": priority,      # "high" | "mid" | "low"
         "memo": memo,
         "color": color,
-        "jiras": [],               # [{"name": str, "path": str}, ...]
-        "folders": [],             # [{"name": str, "path": str}, ...]
-        "attachments": [],         # [절대경로str, ...]
+        "jiras": jiras if jiras is not None else [],
+        "folders": folders if folders is not None else [],
+        "attachments": attachments if attachments is not None else [],
         "source": source,          # "manual" 또는 애드온 id
         "deco_image": None,        # 칸별 꾸미기 이미지 경로
     }
