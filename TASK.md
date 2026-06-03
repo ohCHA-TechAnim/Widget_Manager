@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: DONE
 
 ---
 
@@ -37,4 +37,5 @@ STATUS: WAITING_USER 로 바꾼 뒤 멈춰라.
 
 ## ✅ 완료 노트
 
-(Claude Code가 채웁니다)
+- `hello.py` 생성 완료 (한국어 인사말: `print("안녕하세요!")`)
+- 사용자 답변 A (한국어) 에 따라 진행
