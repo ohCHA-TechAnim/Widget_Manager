@@ -40,10 +40,11 @@ class MainWindow(QMainWindow):
         self.resize(920, 640)
 
         self._store = TaskStore()
+        self._settings = theme_manager._settings
 
         # 뷰 스택 (0=월, 1=목록, 2=칸반)
         self._stack = QStackedWidget()
-        self._month_view = MonthView(self._store)
+        self._month_view = MonthView(self._store, self._settings)
         self._list_view = ListView(self._store)
         self._kanban_view = KanbanView(self._store)
         self._stack.addWidget(self._month_view)

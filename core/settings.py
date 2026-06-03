@@ -12,6 +12,9 @@ _SETTINGS_PATH = (
 _DEFAULTS: dict = {
     "theme": "light",
     "accent_color": "#4A90D9",
+    "bg_image": "",
+    "bg_opacity": 0.4,
+    "deco_images": {},
 }
 
 
@@ -45,3 +48,17 @@ class Settings:
     def set(self, key: str, value) -> None:
         self._data[key] = value
         self._save()
+
+    # --- 칸별 deco_image 헬퍼 ---
+    def get_deco_image(self, date_str: str) -> str:
+        return self._data.get("deco_images", {}).get(date_str, "")
+
+    def set_deco_image(self, date_str: str, path: str) -> None:
+        self._data.setdefault("deco_images", {})[date_str] = path
+        self._save()
+
+    def clear_deco_image(self, date_str: str) -> None:
+        d = self._data.get("deco_images", {})
+        if date_str in d:
+            del d[date_str]
+            self._save()
