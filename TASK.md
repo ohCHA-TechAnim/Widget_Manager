@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 작업 지시
 Widget_Manager 코어 v0.1 개발을 시작한다. 같은 폴더의 Widget_Manager_구현지시_1차.md가 전체 설계 문서다. 그 문서를 읽고 따르되, 원격 작업이므로 아래 진행 규칙을 지켜라.
@@ -30,10 +30,23 @@ TaskHub_완전판_v2_소스포함.md — 기존 TaskHub 소스 (나중 단계에
 
 
 ❓ 질문
-(Claude Code가 채웁니다)
+
+**1~2단계 완료 보고 — 3단계(월 뷰)로 진행할까요?**
+
+완료된 내용:
+- **1단계**: 폴더 골격(`core/`, `views/`, `utils/`, `theme/`, `plugins/`, `tests/`) + `requirements.txt` + `main.py` 빈 창 (PyQt6 920×640, 로깅 설정)
+- **2단계**: `core/task_store.py` 완성 — 일감 데이터 구조(uuid/title/start/end/status/priority/memo/color/jiras/folders/attachments/source/deco_image), JSON 저장·로드, CRUD, 날짜 범위 쿼리, 옵저버 패턴, 유효성 검사
+- 단독 테스트 7개 전체 통과 (`py -3.11 tests/test_task_store.py`)
+- PyQt6 6.11.0 설치 확인 / `main.py` import 정상 동작 확인
+
+빈 창 직접 표시는 원격 환경(헤드리스)이라 스크린샷 불가하지만, PyQt6 import 및 QApplication 생성은 검증됨.
+
+**질문**: 3단계(월 뷰 — 손으로 일감 추가·표시)로 진행할까요? 아니면 조정할 것이 있으신가요?
 
 💬 답변
 (사용자가 채웁니다)
 
 ✅ 완료 노트
-(Claude Code가 채웁니다)
+
+- **1단계 (2026-06-03)**: 폴더 골격 생성, PyQt6 6.11.0 설치, `main.py` 빈 창(920×640), `requirements.txt`, `.gitignore`, 로깅(`%APPDATA%\Widget_Manager\logs\`)
+- **2단계 (2026-06-03)**: `core/task_store.py` — 일감 데이터 구조, JSON 영속화(`%APPDATA%\Widget_Manager\data\tasks.json`), CRUD, 날짜 범위 쿼리, 옵저버 패턴, 유효성 검사. 단독 테스트 7개 통과.
