@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## 작업 지시
 
@@ -44,6 +44,15 @@ STATUS: PENDING
 ---
 
 ## ✅ 완료 노트
+
+- **플러그인 시스템 (2026-06-04)**:
+  - `core/plugin_api.py` — `PluginBase` 추상 기반 클래스 (메타데이터 속성, 수명주기 훅 `on_load`/`on_unload`, 일감 훅 `on_store_changed`, UI 확장 `get_menu_actions`)
+  - `core/plugin_loader.py` — `AppContext`(store·settings·main_window 노출), `PluginLoader`(발견·로드·언로드·훅 발신·에러 격리)
+  - `views/plugin_dialog.py` — 활성화/비활성화 UI, 설정 `enabled_plugins` 자동 저장
+  - `plugins/hello_plugin/__init__.py` — 데모 플러그인 (정보 메시지 액션 포함)
+  - `main.py` — 플러그인 메뉴 추가, 앱 시작 시 활성화 목록 자동 로드
+
+
 
 - **1단계 (2026-06-03)**: 폴더 골격 생성, PyQt6 6.11.0 설치, `main.py` 빈 창(920×640), `requirements.txt`, `.gitignore`, 로깅(`%APPDATA%\Widget_Manager\logs\`)
 - **2단계 (2026-06-03)**: `core/task_store.py` — 일감 데이터 구조, JSON 영속화(`%APPDATA%\Widget_Manager\data\tasks.json`), CRUD, 날짜 범위 쿼리, 옵저버 패턴, 유효성 검사. 단독 테스트 7개 통과.

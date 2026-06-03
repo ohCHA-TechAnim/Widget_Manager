@@ -29,12 +29,14 @@ from PyQt6.QtCore import Qt
 
 from core.task_store import TaskStore
 from core.settings import Settings
+from core.plugin_loader import PluginLoader, AppContext
 from views.month_view import MonthView
 from views.list_view import ListView
 from views.kanban_view import KanbanView
 from views.converter_view import ConverterView
 from views.task_dialog import TaskDialog
 from views.report_dialog import ReportDialog
+from views.plugin_dialog import PluginDialog
 from theme.theme_manager import ThemeManager, AccentPickerDialog
 
 
@@ -60,6 +62,7 @@ class MainWindow(QMainWindow):
 
         self._store = TaskStore()
         self._settings = theme_manager._settings
+        self._plugin_loader = PluginLoader()
 
         # 뷰 스택 (0=월, 1=목록, 2=칸반, 3=좌표변환)
         self._stack = QStackedWidget()
@@ -83,6 +86,13 @@ class MainWindow(QMainWindow):
 
         self._build_toolbar()
         self._setup_tray()
+
+        # 플러그인 초기화 — UI 구성 완료 후 로드해야 플러그인이 main_window에 접근 가능
+        ctx = AppContext(self._store, self._settings, self)
+        self._plugin_loader.init(ctx)
+        self._plugin_loader.load_enabled(self._settings.get("enabled_plugins", []))
+        self._refresh_plugin_menu()
+
         logger.info("메인 창 생성 완료")
 
     # ── 메뉴바 ─────────────────────────────────────────────────────────────
@@ -91,6 +101,24 @@ class MainWindow(QMainWindow):
         tools_menu = menubar.addMenu("도구")
         report_action = tools_menu.addAction("보고서 생성...")
         report_action.triggered.connect(self._on_generate_report)
+
+        self._plugin_menu = menubar.addMenu("플러그인")
+        self._plugin_menu.addAction("플러그인 관리...", self._on_manage_plugins)
+        self._plugin_menu.addSeparator()
+
+    def _refresh_plugin_menu(self):
+        """플러그인 메뉴의 플러그인 액션을 최신 상태로 갱신한다."""
+        actions = self._plugin_menu.actions()
+        # 첫 두 항목(관리..., 구분선)은 유지하고 나머지만 제거
+        for action in actions[2:]:
+            self._plugin_menu.removeAction(action)
+        for label, callback in self._plugin_loader.all_menu_actions():
+            self._plugin_menu.addAction(label, callback)
+
+    def _on_manage_plugins(self):
+        dlg = PluginDialog(self._plugin_loader, self._settings, self)
+        dlg.exec()
+        self._refresh_plugin_menu()
 
     # ── 툴바 ───────────────────────────────────────────────────────────────
     def _build_toolbar(self):
