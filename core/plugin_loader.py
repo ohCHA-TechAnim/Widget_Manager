@@ -9,6 +9,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING
 
 from core.plugin_api import PluginBase
+from utils.resource_path import resource_path
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QMainWindow
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_PLUGINS_DIR = Path(__file__).resolve().parent.parent / "plugins"
+_PLUGINS_DIR = resource_path("plugins")
 
 
 class AppContext:

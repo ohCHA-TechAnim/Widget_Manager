@@ -1,6 +1,5 @@
 """테마 관리자 — QSS 런타임 교체 + 포인트색 주입."""
 import logging
-from pathlib import Path
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
@@ -9,9 +8,11 @@ from PyQt6.QtWidgets import (
     QLabel, QPushButton, QColorDialog, QSizePolicy,
 )
 
+from utils.resource_path import resource_path
+
 logger = logging.getLogger(__name__)
 
-_THEME_DIR = Path(__file__).parent
+_THEME_DIR = resource_path("theme")
 
 _ACCENT_PRESETS = [
     ("#4A90D9", "파랑"),

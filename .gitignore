@@ -3,3 +3,9 @@ __pycache__/
 *.pyo
 .env
 *.log
+
+# PyInstaller 빌드 산출물
+build/
+dist/
+*.spec.bak
+assets/app_icon.ico

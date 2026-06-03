@@ -4,6 +4,9 @@ import logging
 from pathlib import Path
 from datetime import date as _date
 
+# PyInstaller 패키지 환경 초기화 (sys._MEIPASS → sys.path, 리소스 경로 설정)
+import utils.resource_path  # noqa: F401  side-effect import
+
 # 로그 디렉터리: %APPDATA%\Widget_Manager\logs\
 _log_dir = Path.home() / "AppData" / "Roaming" / "Widget_Manager" / "logs"
 _log_dir.mkdir(parents=True, exist_ok=True)

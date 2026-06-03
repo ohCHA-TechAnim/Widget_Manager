@@ -1,5 +1,34 @@
 STATUS: WAITING_USER
 
+## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
+
+완료된 내용:
+- `utils/resource_path.py` — `resource_path(rel)` 헬퍼. PyInstaller 환경(`sys._MEIPASS`)과 개발 환경 모두 올바른 경로 반환. 패키지 환경에서 `sys._MEIPASS`를 `sys.path`에 삽입해 `plugins.*` 임포트 동작.
+- `theme/theme_manager.py` — `_THEME_DIR` → `resource_path("theme")` 변경
+- `core/plugin_loader.py` — `_PLUGINS_DIR` → `resource_path("plugins")` 변경
+- `main.py` — 최상단에 `import utils.resource_path` (조기 초기화 side-effect)
+- `make_icon.py` — PyQt6로 16/32/48/256px 원형 아이콘 렌더링 → ICO 포맷 생성 (`assets/app_icon.ico`)
+- `widget_manager.spec` — PyInstaller 6.x 스펙. `theme/*.qss`, `plugins/` 데이터 포함. `--windowed` (콘솔 없음), ICO 아이콘 적용.
+- `build.ps1` — 1) PyInstaller 확인/설치, 2) 아이콘 생성, 3) 빌드 자동화. `-Clean` 스위치 지원.
+- `requirements-dev.txt` — 빌드 전용 의존성 (`pyinstaller>=6.0`)
+- `.gitignore` — `build/`, `dist/`, `assets/app_icon.ico` 추가
+
+빌드 결과 (실측):
+- `dist\WidgetManager\WidgetManager.exe` — 3.8 MB
+- `dist\WidgetManager\_internal\` — 총 99.6 MB (235 파일)
+- exe 실행 확인: 프로세스 정상 기동, 로그 오류 없음, 트레이 아이콘·설정·일감 모두 정상
+
+빌드 방법:
+```powershell
+.\build.ps1          # 증분 빌드
+.\build.ps1 -Clean   # 클린 빌드
+```
+
+---
+
+**다음 단계: 3단계 — 자동 업데이트 + 시작프로그램 등록**
+진행해도 될까요?
+
 ## 작업 지시
 
 ---
