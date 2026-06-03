@@ -31,53 +31,22 @@ custom-paint라 테마 미적용"이라고 했던 그 부분으로 추정된다.
   - PyInstaller `--windowed` 대비: `sys.stdout is None` 체크 후 StreamHandler 조건부 등록
   - 구문 검사 통과 (py 3.11)
 
-**질문**: 코어 v0.1이 완성되었습니다. 다음 중 어떻게 진행할까요?
+---
+
+## ❓ 질문
+
+**코어 v0.1이 완성되었습니다. 다음 중 어떻게 진행할까요?**
+
 1. **플러그인 시스템** (core/plugin_loader.py + plugin_api.py) — 애드온 인프라 준비
 2. **배포/패키징** (PyInstaller spec 작성, 빌드 자동화)
 3. **QA / 버그 수정** — 실제 사용 중 발견된 문제 수정
 4. **기타 요청 기능** — 원하는 기능 말씀해 주세요
 
----
-
-## ❓ 질문
-
-**6단계 완료 보고 — 7단계(꾸미기: 배경/칸별 이미지)로 진행할까요?**
-
-완료된 내용:
-- **6단계**: 테마 시스템 — 라이트/다크 + 커스텀 포인트색
-  - `core/settings.py` — Settings 클래스 (`%APPDATA%\Widget_Manager\settings.json` 저장/로드)
-    - `theme` ("light"|"dark"), `accent_color` (#RRGGBB) 지속 저장
-  - `theme/light.qss` / `theme/dark.qss` — QSS 두 벌
-    - `{ACCENT}`, `{ACCENT_HOVER}`, `{ACCENT_DARK}`, `{ACCENT_TEXT}` 자리표시자
-    - 버튼·입력필드·탭·리스트·테이블·스크롤바·툴바 스타일 완성
-  - `theme/theme_manager.py`
-    - `ThemeManager` — 런타임 QSS 교체 + 포인트색 주입 (밝기 보정 자동)
-    - `AccentPickerDialog` — 프리셋 8색 + QColorDialog 직접 지정
-  - `main.py` — 툴바 우측에 **다크/라이트 토글** 버튼 + **포인트색** 버튼 추가
-  - `views/task_dialog.py` — 삭제 버튼을 danger-outline 스타일로 변경
-- 구문 검사 통과 (py 3.11). 월 캘린더 셀·칸반 컬럼 배경은 custom-paint/inline-style이므로 테마 미적용(다음 단계에서 조정 가능).
-
-**질문**: 7단계(꾸미기 — 캘린더 전체 배경 이미지/GIF + 칸별 deco_image)로 진행할까요?
-
 ## 💬 답변
-진행하는데, 다크모드에서 하루(한칸)은 색변환 없이 흰색으로 나와. 다크모드 제대로 적용해야해
+
+(여기에 답변을 작성하세요)
 
 ---
-
-**7단계 완료 보고 — 8단계(순수 유틸 이식)로 진행할까요?**
-
-완료된 내용:
-- **7단계**: 꾸미기 — 배경 이미지/GIF + 칸별 deco_image
-  - `core/settings.py` — `bg_image`, `bg_opacity`, `deco_images` 필드 추가; `get/set/clear_deco_image()` 헬퍼
-  - `views/month_view.py`
-    - `BgSettingsDialog` — 파일 선택(이미지/GIF) + 밝기 슬라이더(10~100%) + 제거 버튼
-    - `CalendarCell` — deco_image 썸네일(하단 40% 반투명 표시), 우클릭 컨텍스트 메뉴(설정/제거), 배경 활성 시 `WA_TranslucentBackground`로 반투명 셀 전환
-    - `MonthView.paintEvent()` — `QPixmap`(정적) / `QMovie`(GIF 애니) 배경 렌더링, 밝기 opacity 적용
-    - nav bar에 **배경** 버튼 추가 → `BgSettingsDialog` 오픈
-  - `main.py` — `MonthView`에 `settings` 인스턴스 전달
-- 구문 검사 통과 (py 3.11), 앱 정상 실행 확인
-
-**질문**: 8단계(순수 유틸 이식 — `math_utils.py`, `coordinate_converter.py`, `report_generator.py` + 탭/메뉴 연결)로 진행할까요?
 
 ## ✅ 완료 노트
 
