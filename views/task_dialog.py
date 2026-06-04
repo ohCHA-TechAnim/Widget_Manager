@@ -82,6 +82,18 @@ class TaskDialog(QDialog):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(6)
 
+        # sharepoint 일감은 원본이 SharePoint에 있으므로 편집 경고 표시
+        if self._task and self._task.get("source") == "sharepoint":
+            banner = QLabel(
+                "SharePoint에서 가져온 일감입니다. 여기서 수정해도 원본에 반영되지 않습니다."
+            )
+            banner.setWordWrap(True)
+            banner.setStyleSheet(
+                "background-color: #3a3320; color: #ffcc00; "
+                "padding: 6px 8px; border-radius: 3px; font-size: 8pt;"
+            )
+            root.addWidget(banner)
+
         tabs = QTabWidget()
         tabs.addTab(self._make_basic_tab(default_date), "기본 정보")
         tabs.addTab(self._make_links_tab(), "링크 & 첨부")

@@ -1,2 +1,6 @@
 PyQt6>=6.6.0
 python-docx>=1.1.0
+
+# nexon_sharepoint 플러그인 전용 (코어는 없어도 동작)
+selenium>=4.20.0
+openpyxl>=3.1.0
