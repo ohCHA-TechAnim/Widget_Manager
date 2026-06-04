@@ -1,138 +1,77 @@
-STATUS: WAITING_USER
+STATUS: PENDING
+작업 지시 — Widget_Manager v0.2 개선 (5개 항목)
+작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
+현재 코어 v0.1 완성 + exe 빌드까지 끝난 상태. 아래 5개 개선을 진행한다.
+원격 진행 규칙 (중요 — 반드시 지킬 것)
 
-## ✅ git commit & push + exe 확인 완료 (2026-06-05)
-
-- git push: `fc886e8` → origin/main 최신
-- `dist\WidgetManager\WidgetManager.exe` — 기동 확인 (PID 정상, 5초 유지)
-- 다음 단계는 사용자가 직접 exe 실행 후 결정
-
-## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
-
-완료된 내용:
-- `utils/resource_path.py` — `resource_path(rel)` 헬퍼. PyInstaller 환경(`sys._MEIPASS`)과 개발 환경 모두 올바른 경로 반환. 패키지 환경에서 `sys._MEIPASS`를 `sys.path`에 삽입해 `plugins.*` 임포트 동작.
-- `theme/theme_manager.py` — `_THEME_DIR` → `resource_path("theme")` 변경
-- `core/plugin_loader.py` — `_PLUGINS_DIR` → `resource_path("plugins")` 변경
-- `main.py` — 최상단에 `import utils.resource_path` (조기 초기화 side-effect)
-- `make_icon.py` — PyQt6로 16/32/48/256px 원형 아이콘 렌더링 → ICO 포맷 생성 (`assets/app_icon.ico`)
-- `widget_manager.spec` — PyInstaller 6.x 스펙. `theme/*.qss`, `plugins/` 데이터 포함. `--windowed` (콘솔 없음), ICO 아이콘 적용.
-- `build.ps1` — 1) PyInstaller 확인/설치, 2) 아이콘 생성, 3) 빌드 자동화. `-Clean` 스위치 지원.
-- `requirements-dev.txt` — 빌드 전용 의존성 (`pyinstaller>=6.0`)
-- `.gitignore` — `build/`, `dist/`, `assets/app_icon.ico` 추가
-
-빌드 결과 (실측):
-- `dist\WidgetManager\WidgetManager.exe` — 3.8 MB
-- `dist\WidgetManager\_internal\` — 총 99.6 MB (235 파일)
-- exe 실행 확인: 프로세스 정상 기동, 로그 오류 없음, 트레이 아이콘·설정·일감 모두 정상
-
-빌드 방법:
-```powershell
-.\build.ps1          # 증분 빌드
-.\build.ps1 -Clean   # 클린 빌드
-```
-
----
-
-**다음 단계: 3단계 — 자동 업데이트 + 시작프로그램 등록**
-진행해도 될까요?
-
-## ✅ 3단계 완료 보고 — 자동 업데이트 + 시작프로그램 등록
-
-완료된 내용:
-- `utils/startup.py` — `is_registered()` / `register()` / `unregister()`. HKCU `Software\Microsoft\Windows\CurrentVersion\Run` 레지스트리 키 사용. 패키지 환경이면 exe 경로, 개발 환경이면 `pythonw.exe main.py` 등록. `winreg` (stdlib, Windows 전용).
-- `core/updater.py` — `APP_VERSION = "0.1.0"`, `check_for_update()` (urllib, GitHub Releases API), `UpdateChecker(QThread)` — `update_available(dict)` 시그널 방출.
-- `views/settings_dialog.py` — `SettingsDialog`: 시작프로그램 체크박스(토글 즉시 반영), 업데이트 확인 버튼(동기 체크 → 새 버전 있으면 릴리즈 페이지 브라우저 오픈).
-- `main.py` 수정:
-  - `SettingsDialog`, `UpdateChecker` 임포트 추가
-  - 트레이 "설정" → `SettingsDialog` 열기 (기존: 창 표시만 했음)
-  - `MainWindow.__init__` 완료 후 `UpdateChecker` 스레드 시작 → 업데이트 있으면 트레이 풍선 알림
-  - `_on_update_available()` 핸들러 추가
-- 새 의존성 없음 (`urllib`, `winreg` 모두 stdlib)
-- 구문 검사 통과 (py 3.11)
-
-사용법:
-- **시작프로그램**: 트레이 → 설정 → "Windows 시작 시 자동 실행" 체크박스
-- **업데이트**: 시작 시 백그라운드 체크 (있으면 트레이 알림) + 설정 → "업데이트 확인" 버튼
-
----
-
-**다음 단계: 코어 v0.1 완성 이후 계획은?**
-
-1. **QA / 버그 수정** — 실제 사용 중 발견된 문제
-2. **빌드 재패키징** — spec에 새 파일 반영 후 exe 재빌드
-3. **기타 기능 추가**
-
-진행해도 될까요?
-
----
-
-## 작업 지시
-
----
-
-**다크모드 버그 수정 + 9단계 완료 보고 — 코어 v0.1 완성. 다음 단계는?**
-
-완료된 내용:
-- **다크모드 버그 수정**: `views/month_view.py` `CalendarCell.paintEvent()` — QPalette.Window 밝기(`lightness() < 128`)로 다크/라이트 판별, 셀 배경·날짜색·테두리·+N 오버플로 색상 다크 모드 대응
-  - 셀 배경: 다크 시 #2D2D2D(일반) / #252525(다른달) / #1A3A5A(오늘)
-  - 날짜색: 다크 시 #CCCCCC(일반) / #666666(다른달) / #7FBFFF(오늘)
-  - 테두리: 다크 시 #555555(일반) / #4A90D9(오늘, 동일)
-- **9단계**: 트레이 상주 + 로깅 (`main.py` 수정)
-  - `QSystemTrayIcon` — 16×16 파란 원 프로그래매틱 아이콘 (별도 파일 불필요)
-  - `closeEvent` 오버라이드: ✕ 버튼 → 트레이 숨김 (종료 아님) + 풍선 알림
-  - 트레이 컨텍스트 메뉴: **열기** / **보고서 생성** / **설정** / **종료**
-    - 설정: 창 표시 (설정 컨트롤은 툴바 우측에 있음)
-    - 종료: `QApplication.quit()` 완전 종료
-  - 트레이 아이콘 더블클릭 → 창 토글 (표시/숨김)
-  - `app.setQuitOnLastWindowClosed(False)` — 창 숨겨도 이벤트 루프 유지
-  - PyInstaller `--windowed` 대비: `sys.stdout is None` 체크 후 StreamHandler 조건부 등록
-  - 구문 검사 통과 (py 3.11)
-
----
-
-## ❓ 질문
-
-**코어 v0.1이 완성되었습니다. 다음 중 어떻게 진행할까요?**
-
-1. **플러그인 시스템** (core/plugin_loader.py + plugin_api.py) — 애드온 인프라 준비
-2. **배포/패키징** (PyInstaller spec 작성, 빌드 자동화)
-3. **QA / 버그 수정** — 실제 사용 중 발견된 문제 수정
-4. **기타 요청 기능** — 원하는 기능 말씀해 주세요
-
-## 💬 답변
-
-3단계(플러그인·패키징·자동업데이트)까지 다 끝났다. 잘했어.
-지금은 새 기능 추가하지 말고, 다음만 해줘:
-
-1. 지금까지 만든 모든 변경사항을 git commit & push (정리)
-2. 현재 빌드된 exe(dist\WidgetManager\WidgetManager.exe)가 
-   실제로 정상 실행되는지 마지막으로 한 번 확인
-3. 완료되면 STATUS: WAITING_USER 로 바꾸고 멈춰라.
-   (내가 직접 exe를 실행해보고, 그 다음을 정할 거다)
-
-새 단계(QA·재빌드·기타)는 지금 시작하지 마라. 위 3개만.
-
----
-
-## ✅ 완료 노트
-
-- **플러그인 시스템 (2026-06-04)**:
-  - `core/plugin_api.py` — `PluginBase` 추상 기반 클래스 (메타데이터 속성, 수명주기 훅 `on_load`/`on_unload`, 일감 훅 `on_store_changed`, UI 확장 `get_menu_actions`)
-  - `core/plugin_loader.py` — `AppContext`(store·settings·main_window 노출), `PluginLoader`(발견·로드·언로드·훅 발신·에러 격리)
-  - `views/plugin_dialog.py` — 활성화/비활성화 UI, 설정 `enabled_plugins` 자동 저장
-  - `plugins/hello_plugin/__init__.py` — 데모 플러그인 (정보 메시지 액션 포함)
-  - `main.py` — 플러그인 메뉴 추가, 앱 시작 시 활성화 목록 자동 로드
+한 번에 다 만들지 마라. 아래 단계 순서대로, 한 단계 끝낼 때마다 ## ❓ 질문에 "N단계 완료, 이렇게 됐다. 다음(M단계) 갈까?"를 적고 STATUS: WAITING_USER로 바꿔 commit & push 후 멈춰라.
+단, 1·2·3단계는 비교적 단순하니 묶어서 한 번에 진행하고 WAITING_USER로 멈춰도 된다. 4단계(칸반 색상)는 단독, 5단계(트레이 오버레이)는 반드시 단독으로 끊어라 — 5단계가 가장 크고 위험하다.
+중요한 결정(UI 구조 변경, 기존 동작 변경, 모호점)이 생기면 추측하지 말고 그 단계에서 WAITING_USER로 질문해라.
+사소한 것(변수명/여백/색상 hex 미세값)은 알아서 진행.
+각 단계 끝에 git commit (단계명 포함).
+기존에 동작하던 기능을 망가뜨리지 마라. 특히 데이터 저장(%APPDATA%\Widget_Manager\data\tasks.json), 테마 시스템, 트레이 기존 동작.
 
 
+1단계 — 설정(Settings) 메뉴 신설 + 라이트모드 글자 잘림 수정
+현재 툴바 우측에 "라이트 모드", "포인트색", "배경" 버튼이 흩어져 있고, 라이트 모드에서 일부 버튼 글자가 잘려 보인다.
+할 일:
 
-- **3단계 (2026-06-04)**: `utils/startup.py` (레지스트리 시작프로그램 등록/해제) + `core/updater.py` (GitHub Releases API + UpdateChecker QThread) + `views/settings_dialog.py` (시작프로그램 토글 + 업데이트 확인 UI) + `main.py` (백그라운드 업데이트 체크, 트레이 알림, 설정 다이얼로그 연결).
-- **1단계 (2026-06-03)**: 폴더 골격 생성, PyQt6 6.11.0 설치, `main.py` 빈 창(920×640), `requirements.txt`, `.gitignore`, 로깅(`%APPDATA%\Widget_Manager\logs\`)
-- **2단계 (2026-06-03)**: `core/task_store.py` — 일감 데이터 구조, JSON 영속화(`%APPDATA%\Widget_Manager\data\tasks.json`), CRUD, 날짜 범위 쿼리, 옵저버 패턴, 유효성 검사. 단독 테스트 7개 통과.
-- **3단계 (2026-06-03)**: `views/month_view.py` — 6×7 격자 월 캘린더, 일감 막대, +N 오버플로, 오늘 강조, 이전/다음 네비게이션, 더블클릭/클릭 시그널. `main.py` 연결.
-- **4단계 (2026-06-04)**: `views/task_dialog.py` — 기본 정보 탭(제목/기간/상태/우선순위/색상/메모) + 링크&첨부 탭(지라/폴더/파일). 수정 모드 삭제 버튼. `main.py` QInputDialog 제거.
-- **5단계 (2026-06-04)**: `views/list_view.py` + `views/kanban_view.py` + 뷰 토글 툴바. 드래그&드롭 상태 변경. QStackedWidget 전환.
-- **6단계 (2026-06-04)**: `core/settings.py` + `theme/light.qss` + `theme/dark.qss` + `theme/theme_manager.py`. 라이트/다크 토글, 포인트색 프리셋+직접 선택. 설정 settings.json 지속 저장.
-- **7단계 (2026-06-04)**: `core/settings.py` bg/deco 확장 + `views/month_view.py` 배경 이미지/GIF + 칸별 deco_image 썸네일 + 우클릭 메뉴. BgSettingsDialog 추가.
-- **8단계 (2026-06-04)**: `utils/math_utils.py` + `utils/coordinate_converter.py` + `utils/report_generator.py` 이식. `tests/test_math_utils.py` 20개 통과. `views/converter_view.py` + `views/report_dialog.py` 추가. `main.py` 좌표변환 탭 + 보고서 생성 메뉴 연결. python-docx 설치.
-- **다크모드 버그 수정 (2026-06-04)**: `views/month_view.py` — CalendarCell 셀 배경·날짜색·테두리 QPalette 기반 다크/라이트 대응. QPalette 임포트 추가.
-- **9단계 (2026-06-04)**: `main.py` — QSystemTrayIcon, closeEvent 오버라이드(✕=숨김), 트레이 메뉴(열기/보고서생성/설정/종료), 트레이 더블클릭 토글, setQuitOnLastWindowClosed(False), PyInstaller --windowed 대비 로깅 처리.
-.
+좌측 상단 메뉴바("도구", "플러그인" 옆)에 "설정" 메뉴를 추가한다.
+흩어져 있던 테마(라이트/다크) 토글 · 포인트색 선택 · 배경 설정을 이 설정 메뉴(또는 설정 다이얼로그) 안으로 모은다. 기존 views/settings_dialog.py가 이미 있으니 이를 활용/확장하라.
+툴바 우측의 해당 버튼들은 제거하거나 정리해서, 툴바가 깔끔해지고 글자 잘림이 사라지게 한다.
+라이트 모드에서 모든 버튼/라벨 글자가 잘리지 않고 제대로 보이는지 확인(버튼 최소 너비, 패딩, light.qss 점검).
+
+주의: 기존 테마 적용 로직(theme_manager)·설정 저장(settings.json)은 그대로 재사용. 위치만 옮기는 것이 핵심.
+2단계 — 달력 칸 드래그 다중선택 + 우클릭 기간 일감 생성
+현재 달력에서 칸 하나만 다룰 수 있다. 여러 날에 걸친 일감을 쉽게 만들고 싶다.
+할 일:
+
+views/month_view.py에서 달력 칸을 마우스 드래그로 여러 칸 연속 선택 가능하게 한다(시작 칸에서 누르고 끌어서 끝 칸까지 → 그 범위 하이라이트).
+선택된 범위에서 우클릭 → 컨텍스트 메뉴 → "이 기간으로 일감 생성" 항목을 넣는다.
+그걸 누르면 기존 일감 생성 다이얼로그(task_dialog)가 뜨되, 시작일=선택 첫 칸, 종료일=선택 마지막 칸으로 미리 채워진 상태로 열린다.
+한 칸만 클릭(드래그 없이)했을 때의 기존 동작(그 날 일감 생성/보기)은 유지.
+
+모호하면(예: 드래그 선택 시각효과 디테일) 합리적으로 정하고 진행. 단 "선택 범위→일감 생성 연결"이라는 핵심 흐름은 반드시 동작해야 함.
+3단계 — 뷰 토글 라벨 변경
+뷰 전환 버튼 라벨 "월 뷰 / 목록 / 칸반" → "달력 / 목록 / 칸반" 으로 변경.
+(기능은 그대로, 텍스트만. "월 뷰"라는 표현이 어색하므로 "달력"으로.)
+
+여기까지(1·2·3단계) 묶어서 끝내고 WAITING_USER로 멈춰라.
+## ❓ 질문에 "1·2·3단계 완료(설정메뉴/드래그선택+기간일감/라벨변경). 확인해보고, 4단계(칸반 색상 일관화) 갈까?" 적기.
+4단계 — 칸반 보드 색상 테마 일관화 (이 단계는 위 확인 후 단독 진행)
+현재 칸반 보드의 상태별 색상이 너무 튀어서 라이트/다크 테마와 따로 논다.
+할 일:
+
+views/kanban_view.py의 컬럼/카드 색상을 현재 테마(light.qss / dark.qss)의 색 팔레트·포인트색과 어울리도록 조정.
+원색·고채도 대신 테마에 맞는 차분한 톤으로. 라이트 모드/다크 모드 각각에서 자연스럽게 보이게.
+상태 구분은 색의 미묘한 차이 + 포인트색 강조 정도로(우선순위/상태가 구분은 되되 눈을 찌르지 않게).
+
+끝나면 WAITING_USER로 "4단계 완료. 칸반 색상 이렇게 정리했다. 가장 큰 5단계(트레이 오버레이) 갈까?" 질문.
+5단계 — 트레이 도킹 오버레이 패널 (가장 중요·가장 큼, 반드시 단독)
+이게 이 위젯의 원래 핵심 컨셉이다. 현재는 평범한 일반 창으로만 뜨고, 시스템 트레이(작업표시줄 우측 시계 옆 아이콘 영역)에 안 들어가 있다(작업표시줄에 일반 창으로만 보임).
+목표 동작 (둘 다 유지):
+
+평소: 시스템 트레이 아이콘으로 상주. 트레이 아이콘을 클릭하면 화면 우측 하단(트레이 근처)에 작은 오버레이 패널이 톡 나타난다. 다시 클릭하면 닫힌다(토글). 이 오버레이는 일반 창처럼 작업표시줄을 차지하지 않고, 프레임 없이(또는 최소 프레임) 우측 하단에 도킹된 형태.
+확대: 오버레이 패널에 "확대"(또는 전체보기) 버튼을 두어, 누르면 지금의 큰 창(920×640, 6주 전체 달력)이 일반 창으로 열린다. 즉 작은 오버레이 ↔ 큰 창 둘 다 사용 가능.
+
+구현 가이드 (참고, 세부는 알아서):
+
+트레이 아이콘은 이미 9단계에서 QSystemTrayIcon으로 들어가 있다. 트레이에 실제로 상주하는지 먼저 점검하라(지금 사용자 화면엔 트레이 아이콘이 안 보인다 함 — 아이콘 등록/표시 문제일 수 있으니 확인·수정).
+오버레이 패널: 별도의 가벼운 위젯(예: views/overlay_panel.py). Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool(작업표시줄 미점유) + WindowStaysOnTopHint 고려. 화면 availableGeometry() 기준 우측 하단에 위치 계산해서 띄우기.
+토글: 트레이 아이콘 클릭(Trigger) → 패널 보이면 숨기고, 숨겨져 있으면 우측 하단에 표시. 포커스 잃으면(focusOut) 자동으로 닫는 것도 고려(원하면 옵션).
+패널 내용: 작게 쓸 수 있는 요약(예: 오늘/이번 주 일감 미니 리스트 또는 미니 달력). 너무 욕심내지 말고 1차는 "오늘·다가오는 일감 미니 목록 + 확대 버튼"이면 충분.
+"확대" 버튼 → 기존 MainWindow(큰 달력 창) 표시.
+시작프로그램 자동 등록: 이미 utils/startup.py가 있다. 설정에서 켜고 끌 수 있게 연결되어 있는지 확인하고, 안 되어 있으면 1단계에서 만든 설정 메뉴에 "Windows 시작 시 자동 실행" 토글로 노출. (레지스트리 HKCU Run — 기존 코드 재사용.)
+
+이 단계는 창 동작/이벤트가 복잡하므로:
+
+한 번에 다 하지 말고, (a) 트레이 상주 확실히 + 토글로 오버레이 띄우기/닫기까지 먼저 만들고 WAITING_USER로 "오버레이 토글까지 됐다, 패널 내용·확대버튼 채울까?" 물어라.
+구조적으로 큰 결정(예: 오버레이를 MainWindow 재활용 vs 별도 위젯)에서 애매하면 WAITING_USER로 물어라.
+
+끝나면(또는 a까지 되면) WAITING_USER로 멈춰서 사용자가 직접 트레이·오버레이를 눌러보게 한다.
+
+진행 순서 요약
+1·2·3 묶음 → (WAITING_USER) → 4 → (WAITING_USER) → 5(트레이 상주+오버레이 토글) → (WAITING_USER) → 5 나머지(패널 내용·확대·시작프로그램)
+각 WAITING_USER에서 멈춰 commit & push. 사용자가 exe로 확인하거나 py main.py로 확인 후 다음 지시한다.
+✅ 완료 노트
+(작업하면서 여기에 단계별로 기록)
