@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 작업 지시 — Widget_Manager 넥슨 SharePoint 일정 애드온 (1라운드: 이식 + 구조 연결)
 작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
 현재 v0.2까지 완성(코어 + 트레이 오버레이). 이제 v0.1 때 깔아둔 플러그인 토대(core/plugin_loader.py, core/plugin_api.py) 위에 실제 넥슨 SharePoint 애드온을 얹는다.
@@ -46,8 +46,60 @@ STATUS: PENDING
 	•	“실제 SharePoint 로그인·다운로드 테스트는 회사 PC에서 해야 한다. Chrome/chromedriver 버전 확인 필요. 2라운드(Outlook 회의)로 갈까, 아니면 먼저 회사에서 SharePoint 실제 테스트할까?”
 그리고 STATUS: WAITING_USER로.
 ❓ 질문
-(Claude가 채움)
+
+## 이식 완료 현황
+
+### 생성된 파일 목록
+| 파일 | 역할 |
+|------|------|
+| `plugins/nexon_sharepoint/__init__.py` | PluginBase 상속 메인 클래스. 메뉴 액션·다운로드 흐름·동기화 |
+| `plugins/nexon_sharepoint/downloader.py` | TaskHub SeleniumDownloader 이식. stale element 재시도·디버그 덤프 유지 |
+| `plugins/nexon_sharepoint/parser.py` | TaskHub parse_excel_data 이식. 연속 날짜→start/end 통합, 90% 공동일감 룰 유지 |
+| `plugins/nexon_sharepoint/settings_dialog.py` | 넥슨 ID·라이브러리URL·파일검색어·시트명·대상자 설정. 비밀번호 저장 안 함 |
+| `tests/test_sharepoint_parser.py` | 파서 단위 테스트 14개 (14/14 통과) |
+
+### 데이터 흐름
+```
+[플러그인 메뉴] → [비밀번호 팝업(매번 입력)] → [SeleniumDownloader QThread]
+    → [SharePoint 로그인 + 엑셀 다운로드]
+    → [parse_excel() → task dict 목록]
+    → [기존 sharepoint 일감 삭제 + 새 일감 추가 to task_store]
+    → [뷰(달력/목록/칸반)는 task_store만 읽으므로 자동 표시]
+```
+
+### 코어 무결성 확인
+- 기존 테스트 27개 전원 통과 (`test_math_utils`, `test_task_store`)
+- 플러그인은 기존 Plugin 관리 다이얼로그에서 활성화·비활성화 가능
+- selenium/openpyxl 미설치 시 플러그인 로드는 성공하고, 실행 시점에 친절한 에러 메시지
+- 코어(task_store, settings, views)는 단 한 줄도 수정 안 함  
+  (task_dialog.py에만 sharepoint 배너 12줄 추가 — view 파일이므로 코어 아님)
+
+### 파서 샘플 데이터 테스트 결과
+openpyxl로 인메모리 샘플 엑셀 생성 후 파싱:
+- `캐릭터A` (접두사 없음) → status="todo", start=2026-01-01, end=2026-01-02 ✓
+- `배경B` (진) 접두사) → status="doing", start=2026-01-03, end=2026-01-04 ✓
+- 연속 날짜 통합(gap ≤ 3일), 90% 공동일감 → #00BFFF, source="sharepoint" 모두 확인
+
+### 비밀번호 처리
+- TaskHub는 config.json에 평문 저장 → 이식하면서 개선
+- 1차: 가져오기 실행 시마다 QInputDialog로 입력 (keyring 의존성 추가 없음)
+- settings.json에 절대 저장하지 않음
+
+### 사용법
+1. 플러그인 메뉴 → "플러그인 관리..." → `nexon_sharepoint` → 활성화
+2. 플러그인 메뉴 → "SharePoint 설정..." → 넥슨 ID·URL·시트명·대상자 입력 후 "활성화" 체크 → 저장
+3. 플러그인 메뉴 → "SharePoint 일정 가져오기" → 비밀번호 입력
+4. 완료 시 달력/목록/칸반에 source="sharepoint" 일감 자동 표시
+
+**실제 SharePoint 로그인·다운로드 테스트는 회사 PC에서 해야 합니다.**  
+Chrome/chromedriver 버전 확인 필요. 셀렉터 불일치 시 `sp_error_shot.png` + 로그 확인.
+
+---
+
+**2라운드(Outlook 회의)로 갈까, 아니면 먼저 회사에서 SharePoint 실제 테스트할까?**
+
 💬 답변
 (사용자가 채움)
+
 ✅ 완료 노트
-(Claude가 단계별로 채움)
+- 2025-06-05: nexon_sharepoint 플러그인 1라운드 이식 완료 (commit 0298806)
