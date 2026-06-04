@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
 
