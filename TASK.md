@@ -1,4 +1,4 @@
-STATUS: WAITING_USER
+STATUS: PENDING
 작업 지시 — Widget_Manager v0.2 개선 (5개 항목)
 작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
 현재 코어 v0.1 완성 + exe 빌드까지 끝난 상태. 아래 5개 개선을 진행한다.
@@ -89,6 +89,8 @@ views/kanban_view.py의 컬럼/카드 색상을 현재 테마(light.qss / dark.q
 확인해보고, 가장 큰 5단계(트레이 오버레이) 갈까?
 
 ## 💬 답변
+5단계 진행하자.
+
 ✅ 완료 노트
 [4단계] 칸반 보드 색상 테마 일관화
 - kanban_view.py: _COLS에서 하드코딩 배경색 제거, panel/header에 objectName 부여
