@@ -108,3 +108,13 @@
 [2026-06-05 04:52:35][OK] STATUS=PENDING 확인. Claude Code 실행 시작...
 [2026-06-05 04:52:35][INFO] claude 실행 중...
 [2026-06-05 05:02:25][OK] Claude Code 종료 (정상).
+[2026-06-05 05:02:28][OK] GitHub push 완료.
+[2026-06-05 05:03:28][INFO] TASK.md 변경 감지 (commit: 20a0e675)
+[2026-06-05 05:03:29][INFO] STATUS=WAITING_USER — 사용자 답변 대기 중. 건너뜁니다.
+[2026-06-05 05:26:03][INFO] === Widget_Manager 워처 시작 ===
+[2026-06-05 05:26:03][INFO] 프로젝트: D:\Projects\Widget_Manager
+[2026-06-05 05:26:03][INFO] 브랜치: main | 폴링 간격: 60초
+[2026-06-05 05:26:04][INFO] TASK.md 변경 감지 (commit: 1526caa9)
+[2026-06-05 05:26:04][OK] STATUS=PENDING 확인. Claude Code 실행 시작...
+[2026-06-05 05:26:04][INFO] claude 실행 중...
+[2026-06-05 05:31:09][OK] Claude Code 종료 (정상).
