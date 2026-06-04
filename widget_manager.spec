@@ -28,6 +28,23 @@ a = Analysis(
         'lxml',
         'lxml.etree',
         'lxml._elementpath',
+        # selenium (PyInstaller auto-hook이 놓치는 서브모듈)
+        'selenium',
+        'selenium.webdriver',
+        'selenium.webdriver.chrome',
+        'selenium.webdriver.chrome.options',
+        'selenium.webdriver.chrome.service',
+        'selenium.webdriver.common.by',
+        'selenium.webdriver.support.ui',
+        'selenium.webdriver.support.expected_conditions',
+        'selenium.common.exceptions',
+        # trio / trio-websocket (selenium 비동기 의존성)
+        'trio',
+        'trio_websocket',
+        # openpyxl
+        'openpyxl',
+        'openpyxl.styles',
+        'openpyxl.utils',
     ],
     hookspath=[],
     hooksconfig={},
