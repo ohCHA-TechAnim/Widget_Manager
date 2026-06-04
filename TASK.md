@@ -1,105 +1,31 @@
-STATUS: WAITING_USER
-작업 지시 — Widget_Manager 넥슨 SharePoint 일정 애드온 (1라운드: 이식 + 구조 연결)
-작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
-현재 v0.2까지 완성(코어 + 트레이 오버레이). 이제 v0.1 때 깔아둔 플러그인 토대(core/plugin_loader.py, core/plugin_api.py) 위에 실제 넥슨 SharePoint 애드온을 얹는다.
-핵심: 새로 만드는 게 아니라, TaskHub에 이미 검증된 코드를 플러그인으로 이식하는 것이다.
-원본 소스: 같은 PC의 TaskHub 인수인계 문서에 SharePoint 다운로더 전체 코드가 있다. (사용자가 별도로 알려주는 경로의 TaskHub_완전판_v2_소스포함.md, 또는 기존 TaskHub 프로젝트 폴더의 utils/selenium_downloader.py.) 그 파일을 먼저 읽어서 검증된 로직을 그대로 가져와라. 추측으로 새로 짜지 마라.
-원격 진행 규칙 (반드시 지킬 것)
-	•	한 번에 다 만들지 마라. 이번 라운드는 SharePoint만(Outlook 회의는 다음 라운드). 끝나면 ## ❓ 질문에 완료 보고 + “실제 로그인 테스트는 회사 PC에서 해야 한다. 2라운드(Outlook) 갈까, 아니면 먼저 회사에서 SharePoint 테스트할까?“를 적고 STATUS: WAITING_USER로 멈춰라.
-	•	중요한 결정(데이터 흐름 변경, 기존 동작 변경, 플러그인 인터페이스 설계 모호점)이 생기면 추측 말고 그 자리에서 WAITING_USER로 질문.
-	•	사소한 것(변수명/주석/내부 함수 분리)은 알아서.
-	•	각 의미 단위마다 git commit.
-	•	기존에 동작하던 코어 기능(손입력 일정, 테마, 트레이 오버레이, tasks.json 저장)을 절대 망가뜨리지 마라. 애드온은 그 위에 얹기만 한다. 애드온이 꺼져 있어도 코어는 100% 작동해야 한다.
-이번 라운드 목표 (SharePoint 일정 → 달력에 표시)
-회사 SharePoint 라이브러리의 애니메이션팀 일정 엑셀을 Selenium으로 (넥슨 계정 웹 로그인 우회로) 받아와 파싱하고, 그 일정을 Widget_Manager 달력에 source: "sharepoint"로 표시한다.
+STATUS: PENDING
+작업 지시 — Widget_Manager 재빌드 + GitHub Releases 배포 (회사에서 exe 받기 위함)
+작업자: 차승현. 현재 v0.2 + nexon_sharepoint 애드온까지 코드 완료된 상태.
+사용자가 지금 회사에 있고, 집 PC(이 워처가 도는 PC)에서 만들어진 최신 exe를 회사 PC에서 받아 테스트하려 한다.
+목표: 최신 코드로 exe를 재빌드하고 GitHub Releases에 올려서, 회사에서 다운로드할 수 있게 한다.
+진행 규칙
+	•	아래 순서대로 하고, 끝나면 ## ❓ 질문에 결과(릴리즈 URL 포함) 적고 STATUS: WAITING_USER로 멈춰라.
+	•	빌드/배포 중 실패하면 그 지점에서 멈추고 에러를 ❓질문에 적고 WAITING_USER. (추측으로 우회하지 마라.)
+	•	코어/애드온 코드는 수정하지 마라. 이번은 빌드·배포만.
 할 일
-	1.	TaskHub 원본 읽기
-	•	TaskHub 문서/프로젝트에서 utils/selenium_downloader.py(SeleniumDownloader QThread, stale element 재시도 패치 포함)와 엑셀 파싱 로직(parse_excel_data 류), 설정 구조를 읽어라.
-	•	검증된 부분: MS 로그인 흐름, SharePoint 라이브러리 접근, 엑셀 다운로드, stale element 재시도. 이건 그대로 이식.
-	2.	플러그인으로 이식 — plugins/nexon_sharepoint/ 폴더 신설
-	•	plugins/nexon_sharepoint/__init__.py — PluginBase 상속한 애드온 클래스. core/plugin_api.py의 인터페이스를 따른다. on_load/on_unload, 메뉴 액션(예: “SharePoint 일정 가져오기”) 제공.
-	•	plugins/nexon_sharepoint/downloader.py — TaskHub의 selenium_downloader.py 이식 (QThread 비동기 유지). Chrome/chromedriver 사용.
-	•	plugins/nexon_sharepoint/parser.py — 엑셀 → 일정 데이터 변환. Widget_Manager의 일정 데이터 구조(id/title/start/end/status/priority/memo/color/source/…)에 맞게 필드 매핑. source는 “sharepoint” 고정.
-	•	TaskHub의 색상/휴일 규칙(90% 공동 일감 #00BFFF, 80%+ 공실 자동 휴일, 분홍 셀 휴일)도 가져오되, parser 안에 가둬라(코어는 모름).
-	3.	데이터 흐름 연결 (코어 오염 금지)
-	•	애드온은 가져온 일정을 core/task_store.py에 source: "sharepoint"로 넣는다.
-	•	달력/리스트/칸반은 기존대로 task_store만 읽으니 자동 표시됨. 뷰 코드는 건드리지 마라.
-	•	가져온(sharepoint) 일정은 읽기 전용 취급: 손으로 만든(manual) 일정과 구분되게, 편집/삭제 시 경고하거나 막는 정도. (세부는 합리적으로. 핵심은 “원본은 SharePoint에 있으니 여기서 수정해도 의미 없음”을 사용자가 알게.)
-	•	재가져오기 시 기존 sharepoint 일정은 갱신(중복 누적 금지). manual 일정은 절대 건드리지 않게.
-	4.	설정 연결 — v0.2에서 만든 설정 다이얼로그(메뉴바 → 설정 → 앱 설정)에 SharePoint 항목 추가
-	•	입력: 넥슨 ID, 라이브러리 URL, 시트명, target_name(대상자), holidays. (TaskHub config 구조 참고: nexon_id, library_url, sheet_name, holidays.)
-	•	비밀번호(nexon_pw): 평문 저장 금지. TaskHub는 평문이었지만 이식하면서 개선한다. 1차로는 비밀번호를 settings.json에 저장하지 말고 가져오기 실행 시마다 입력받거나, 가능하면 Windows DPAPI/keyring 사용. (keyring 의존성 추가가 부담이면 “매번 입력” 방식으로. 어느 쪽이든 평문 저장만은 피하라.)
-	•	“SharePoint 일정 가져오기” ON/OFF 토글. OFF면 애드온 메뉴/동작 안 보임, 코어는 그대로.
-	5.	빌드/안정성 주의 (TaskHub 교훈 반영)
-	•	print() 금지 — 모두 logging으로 %APPDATA%\Widget_Manager\logs\에 기록 (PyInstaller –windowed 크래시 방지).
-	•	새 의존성(selenium 등)은 requirements.txt에 추가하되, 애드온 전용임을 명시. 코어는 selenium 없이도 import/실행돼야 한다(애드온 로드 실패가 코어를 죽이면 안 됨 — plugin_loader의 에러 격리 확인).
-	•	Selenium은 Chrome/chromedriver 버전 일치 필요. 코드에 버전 불일치 시 친절한 에러 메시지/로그.
-이번 라운드에서 하지 말 것
-	•	Outlook 회의 크롤러(다음 라운드).
-	•	실제 넥슨 계정으로 로그인 테스트 (회사 PC에서 사용자가 직접). 너는 코드 이식과 구조 연결, 그리고 가짜/샘플 엑셀로 parser 단위 동작 확인까지만.
-	•	셀렉터 교정(테넌트마다 다름 — 실제 화면 보고 회사에서).
-완료 후
-## ❓ 질문에 적기:
-	•	무엇을 이식했는지(파일 목록), 데이터 흐름이 어떻게 연결됐는지
-	•	코어가 애드온 없이도 여전히 작동하는지 확인 결과
-	•	parser를 샘플 데이터로 테스트한 결과(가능하면)
-	•	“실제 SharePoint 로그인·다운로드 테스트는 회사 PC에서 해야 한다. Chrome/chromedriver 버전 확인 필요. 2라운드(Outlook 회의)로 갈까, 아니면 먼저 회사에서 SharePoint 실제 테스트할까?”
-그리고 STATUS: WAITING_USER로.
-❓ 질문
-
-## 이식 완료 현황
-
-### 생성된 파일 목록
-| 파일 | 역할 |
-|------|------|
-| `plugins/nexon_sharepoint/__init__.py` | PluginBase 상속 메인 클래스. 메뉴 액션·다운로드 흐름·동기화 |
-| `plugins/nexon_sharepoint/downloader.py` | TaskHub SeleniumDownloader 이식. stale element 재시도·디버그 덤프 유지 |
-| `plugins/nexon_sharepoint/parser.py` | TaskHub parse_excel_data 이식. 연속 날짜→start/end 통합, 90% 공동일감 룰 유지 |
-| `plugins/nexon_sharepoint/settings_dialog.py` | 넥슨 ID·라이브러리URL·파일검색어·시트명·대상자 설정. 비밀번호 저장 안 함 |
-| `tests/test_sharepoint_parser.py` | 파서 단위 테스트 14개 (14/14 통과) |
-
-### 데이터 흐름
-```
-[플러그인 메뉴] → [비밀번호 팝업(매번 입력)] → [SeleniumDownloader QThread]
-    → [SharePoint 로그인 + 엑셀 다운로드]
-    → [parse_excel() → task dict 목록]
-    → [기존 sharepoint 일감 삭제 + 새 일감 추가 to task_store]
-    → [뷰(달력/목록/칸반)는 task_store만 읽으므로 자동 표시]
-```
-
-### 코어 무결성 확인
-- 기존 테스트 27개 전원 통과 (`test_math_utils`, `test_task_store`)
-- 플러그인은 기존 Plugin 관리 다이얼로그에서 활성화·비활성화 가능
-- selenium/openpyxl 미설치 시 플러그인 로드는 성공하고, 실행 시점에 친절한 에러 메시지
-- 코어(task_store, settings, views)는 단 한 줄도 수정 안 함  
-  (task_dialog.py에만 sharepoint 배너 12줄 추가 — view 파일이므로 코어 아님)
-
-### 파서 샘플 데이터 테스트 결과
-openpyxl로 인메모리 샘플 엑셀 생성 후 파싱:
-- `캐릭터A` (접두사 없음) → status="todo", start=2026-01-01, end=2026-01-02 ✓
-- `배경B` (진) 접두사) → status="doing", start=2026-01-03, end=2026-01-04 ✓
-- 연속 날짜 통합(gap ≤ 3일), 90% 공동일감 → #00BFFF, source="sharepoint" 모두 확인
-
-### 비밀번호 처리
-- TaskHub는 config.json에 평문 저장 → 이식하면서 개선
-- 1차: 가져오기 실행 시마다 QInputDialog로 입력 (keyring 의존성 추가 없음)
-- settings.json에 절대 저장하지 않음
-
-### 사용법
-1. 플러그인 메뉴 → "플러그인 관리..." → `nexon_sharepoint` → 활성화
-2. 플러그인 메뉴 → "SharePoint 설정..." → 넥슨 ID·URL·시트명·대상자 입력 후 "활성화" 체크 → 저장
-3. 플러그인 메뉴 → "SharePoint 일정 가져오기" → 비밀번호 입력
-4. 완료 시 달력/목록/칸반에 source="sharepoint" 일감 자동 표시
-
-**실제 SharePoint 로그인·다운로드 테스트는 회사 PC에서 해야 합니다.**  
-Chrome/chromedriver 버전 확인 필요. 셀렉터 불일치 시 `sp_error_shot.png` + 로그 확인.
-
----
-
-**2라운드(Outlook 회의)로 갈까, 아니면 먼저 회사에서 SharePoint 실제 테스트할까?**
-
-💬 답변
-(사용자가 채움)
-
-✅ 완료 노트
-- 2025-06-05: nexon_sharepoint 플러그인 1라운드 이식 완료 (commit 0298806)
+	1.	의존성 확인·설치
+	•	selenium, openpyxl 등 SharePoint 애드온이 쓰는 패키지가 빌드 환경에 설치돼 있는지 확인. 없으면 설치.
+	•	py -m pip install selenium openpyxl python-docx (이미 있으면 넘어감)
+	2.	spec에 애드온 의존성 포함
+	•	widget_manager.spec을 점검해서, exe에 selenium, openpyxl, python-docx, plugins/nexon_sharepoint/ 가 포함되도록 한다.
+	•	PyInstaller가 selenium을 누락하기 쉬우니 hiddenimports 또는 collect_all로 selenium을 명시적으로 포함. plugins 폴더 데이터도 포함 확인.
+	•	목표: 빌드된 exe에서 “SharePoint 일정 가져오기”를 눌렀을 때 “selenium 없음” 에러가 나지 않아야 한다.
+	•	(단, chromedriver 자체는 사용자 PC의 Chrome에 맞춰야 하므로 exe에 안 넣어도 됨. selenium은 Selenium Manager로 드라이버 자동 처리 시도하니, 그 동작 확인.)
+	3.	버전 올리기
+	•	core/updater.py의 APP_VERSION을 “0.1.0” → “0.2.0” 으로 변경. (v0.2 + 애드온 반영 버전)
+	•	이건 코드 수정이지만 버전 표기라 예외로 허용.
+	4.	클린 재빌드
+	•	.\build.ps1 -Clean 으로 처음부터 새로 빌드.
+	•	결과: dist\WidgetManager\WidgetManager.exe + dist\WidgetManager\_internal\
+	•	빌드 후 exe가 실제로 기동되는지 간단 확인(프로세스 뜨고 로그 에러 없는지).
+	5.	배포용 zip 생성
+	•	dist\WidgetManager 폴더 전체(exe + _internal 통째로)를 zip으로 압축.
+	•	반드시 _internal 폴더를 포함해야 함 (exe 혼자선 안 돌아감).
+	•	zip 이름 예: WidgetManager_v0.2.0.zip
+	6.	GitHub Release 생성 + 업로드
+	•	gh CLI로 릴리즈 생성하고 zip 첨부:
