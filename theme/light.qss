@@ -289,3 +289,40 @@ QLabel#kanban_hdr_done {
     border-bottom: 1px solid #88D8A8;
     padding-bottom: 3px;
 }
+
+/* ── 오버레이 패널 ── */
+QWidget#overlay_panel {
+    background-color: #FFFFFF;
+    border: 1px solid #BBBBBB;
+}
+QWidget#overlay_header,
+QWidget#overlay_footer {
+    background-color: #EFEFEF;
+}
+QWidget#overlay_content {
+    background-color: #FFFFFF;
+}
+QLabel#overlay_title {
+    color: #1A1A1A;
+    font-weight: bold;
+}
+QPushButton#overlay_expand_btn,
+QPushButton#overlay_close_btn {
+    padding: 1px 10px;
+    font-size: 8pt;
+    min-height: 20px;
+}
+QLabel#overlay_section_header {
+    color: {ACCENT};
+    font-weight: bold;
+    font-size: 8pt;
+}
+QLabel#overlay_task_item {
+    color: #1A1A1A;
+    font-size: 8pt;
+}
+QLabel#overlay_empty_label {
+    color: #888888;
+    font-size: 8pt;
+    font-style: italic;
+}

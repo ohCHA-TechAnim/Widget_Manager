@@ -30,6 +30,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtCore import Qt
 
+from utils.resource_path import resource_path
+
 from core.task_store import TaskStore
 from core.settings import Settings
 from core.plugin_loader import PluginLoader, AppContext
@@ -41,12 +43,16 @@ from views.task_dialog import TaskDialog
 from views.report_dialog import ReportDialog
 from views.plugin_dialog import PluginDialog
 from views.settings_dialog import SettingsDialog
+from views.overlay_panel import OverlayPanel
 from theme.theme_manager import ThemeManager, AccentPickerDialog
 from core.updater import UpdateChecker
 
 
 def _make_tray_icon() -> QIcon:
-    """16×16 파란 원 아이콘 (별도 아이콘 파일 없어도 동작)"""
+    """앱 아이콘(assets/app_icon.ico) 사용; 없으면 16×16 파란 원 생성."""
+    ico_path = resource_path("assets/app_icon.ico")
+    if ico_path.exists():
+        return QIcon(str(ico_path))
     pix = QPixmap(16, 16)
     pix.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pix)
@@ -92,6 +98,10 @@ class MainWindow(QMainWindow):
 
         self._build_toolbar()
         self._setup_tray()
+
+        # 오버레이 패널 (트레이 클릭 시 우측 하단에 표시)
+        self._overlay = OverlayPanel(self._store)
+        self._overlay.expand_requested.connect(self._show_window)
 
         # 플러그인 초기화 — UI 구성 완료 후 로드해야 플러그인이 main_window에 접근 가능
         ctx = AppContext(self._store, self._settings, self)
@@ -189,14 +199,20 @@ class MainWindow(QMainWindow):
         logger.debug("창 표시")
 
     def _on_tray_activated(self, reason):
-        """트레이 아이콘 더블클릭 → 창 토글"""
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
-            if self.isVisible():
-                self.hide()
-                logger.debug("트레이 더블클릭 → 창 숨김")
+        """트레이 아이콘 클릭 동작:
+        단일 클릭(Trigger) → 오버레이 패널 토글
+        더블 클릭          → 메인 창 표시
+        """
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            if self._overlay.isVisible():
+                self._overlay.hide()
+                logger.debug("트레이 클릭 → 오버레이 숨김")
             else:
-                self._show_window()
-                logger.debug("트레이 더블클릭 → 창 표시")
+                self._overlay.show()
+                logger.debug("트레이 클릭 → 오버레이 표시")
+        elif reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+            self._show_window()
+            logger.debug("트레이 더블클릭 → 메인 창 표시")
 
     def _on_open_settings(self):
         """트레이 '설정' → 설정 다이얼로그 열기"""
