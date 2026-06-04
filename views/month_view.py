@@ -4,7 +4,7 @@ import logging
 from datetime import date, timedelta
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, pyqtSignal
 from PyQt6.QtGui import (
     QColor, QPainter, QPen, QBrush, QFont, QFontMetrics, QPixmap, QMovie,
     QPalette,
@@ -110,10 +110,16 @@ class CalendarCell(QWidget):
         self._deco_image: str = ""
         self._deco_pixmap: QPixmap | None = None
         self._bg_active = False
+        self._in_selection = False
         self.setMinimumHeight(_CELL_MIN_H)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setAutoFillBackground(False)
         self._hit_rects: list[tuple[int, int, int, int, str]] = []
+
+    def set_in_selection(self, selected: bool):
+        if self._in_selection != selected:
+            self._in_selection = selected
+            self.update()
 
     def set_data(
         self,
@@ -170,6 +176,12 @@ class CalendarCell(QWidget):
             else:
                 bg = QColor("#2D2D2D") if is_dark else QColor("#FFFFFF")
         p.fillRect(0, 0, w, h, bg)
+
+        # 드래그 선택 하이라이트
+        if self._in_selection:
+            p.fillRect(0, 0, w, h, QColor(74, 144, 217, 65))
+            p.setPen(QPen(QColor(74, 144, 217, 200), 2))
+            p.drawRect(1, 1, w - 2, h - 2)
 
         # deco 이미지 썸네일 (하단 절반, 반투명)
         if self._deco_pixmap and not self._deco_pixmap.isNull():
@@ -288,6 +300,7 @@ class CalendarCell(QWidget):
 class MonthView(QWidget):
     """월 캘린더 전체 위젯."""
     request_new_task = pyqtSignal(date)
+    request_new_task_range = pyqtSignal(date, date)
     request_edit_task = pyqtSignal(str)
 
     def __init__(self, task_store, settings, parent=None):
@@ -302,6 +315,10 @@ class MonthView(QWidget):
 
         self._bg_pixmap: QPixmap | None = None
         self._bg_movie: QMovie | None = None
+
+        self._drag_start: int | None = None
+        self._drag_end: int | None = None
+        self._dragging = False
 
         self._build_ui()
         self._apply_bg()
@@ -363,9 +380,102 @@ class MonthView(QWidget):
                 cell.double_clicked.connect(self.request_new_task)
                 cell.task_clicked.connect(self.request_edit_task)
                 cell.deco_changed.connect(self._on_deco_changed)
+                cell.installEventFilter(self)
                 self._grid.addWidget(cell, row, col)
                 self._cells.append(cell)
         root.addLayout(self._grid, 1)
+
+    # --- 드래그 선택 ---
+    def eventFilter(self, obj, event):
+        idx = next((i for i, c in enumerate(self._cells) if c is obj), None)
+        if idx is None:
+            return super().eventFilter(obj, event)
+
+        etype = event.type()
+        cell = self._cells[idx]
+
+        if etype == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._drag_start = idx
+                self._drag_end = idx
+                self._dragging = False
+                self._update_selection()
+            return False
+
+        if etype == QEvent.Type.MouseMove:
+            if event.buttons() & Qt.MouseButton.LeftButton and self._drag_start is not None:
+                global_pos = obj.mapToGlobal(event.position().toPoint())
+                new_idx = self._cell_at_global(global_pos)
+                if new_idx is not None and new_idx != self._drag_end:
+                    if not self._dragging and new_idx != self._drag_start:
+                        self._dragging = True
+                    self._drag_end = new_idx
+                    self._update_selection()
+                return self._dragging
+            return False
+
+        if etype == QEvent.Type.MouseButtonRelease:
+            if event.button() == Qt.MouseButton.LeftButton:
+                if self._dragging:
+                    self._dragging = False
+                    return True
+                self._clear_selection()
+            return False
+
+        if etype == QEvent.Type.ContextMenu:
+            if not cell.cell_date:
+                return False
+            lo = hi = idx
+            if self._drag_start is not None and self._drag_end is not None:
+                lo = min(self._drag_start, self._drag_end)
+                hi = max(self._drag_start, self._drag_end)
+            start_cell = self._cells[lo]
+            end_cell = self._cells[hi]
+
+            menu = QMenu(self)
+            if start_cell.cell_date and end_cell.cell_date:
+                if lo == hi:
+                    label = f"이 날 일감 생성 ({start_cell.cell_date.strftime('%m/%d')})"
+                else:
+                    label = (f"이 기간으로 일감 생성 "
+                             f"({start_cell.cell_date.strftime('%m/%d')} ~ "
+                             f"{end_cell.cell_date.strftime('%m/%d')})")
+                sd, ed = start_cell.cell_date, end_cell.cell_date
+                menu.addAction(label).triggered.connect(
+                    lambda _, s=sd, e=ed: self.request_new_task_range.emit(s, e)
+                )
+                menu.addSeparator()
+            if cell._deco_image:
+                menu.addAction("꾸미기 이미지 제거").triggered.connect(cell._clear_deco)
+            menu.addAction("꾸미기 이미지 설정…").triggered.connect(cell._set_deco)
+            menu.exec(event.globalPos())
+            self._clear_selection()
+            return True
+
+        return False
+
+    def _cell_at_global(self, global_pos) -> int | None:
+        local = self.mapFromGlobal(global_pos)
+        for i, cell in enumerate(self._cells):
+            if cell.geometry().contains(local):
+                return i
+        return None
+
+    def _update_selection(self):
+        if self._drag_start is None:
+            for cell in self._cells:
+                cell.set_in_selection(False)
+            return
+        lo = min(self._drag_start, self._drag_end if self._drag_end is not None else self._drag_start)
+        hi = max(self._drag_start, self._drag_end if self._drag_end is not None else self._drag_start)
+        for i, cell in enumerate(self._cells):
+            cell.set_in_selection(lo <= i <= hi)
+
+    def _clear_selection(self):
+        self._drag_start = None
+        self._drag_end = None
+        self._dragging = False
+        self._update_selection()
 
     # --- 배경 ---
     def _open_bg_dialog(self):

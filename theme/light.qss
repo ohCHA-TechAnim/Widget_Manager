@@ -229,3 +229,36 @@ QFrame[frameShape="4"],
 QFrame[frameShape="5"] {
     color: #C4C4C4;
 }
+
+/* ── 메뉴바 ── */
+QMenuBar {
+    background-color: #E0E0E0;
+    color: #1A1A1A;
+}
+
+QMenuBar::item:selected {
+    background-color: {ACCENT};
+    color: {ACCENT_TEXT};
+    border-radius: 3px;
+}
+
+QMenu {
+    background-color: #F5F5F5;
+    border: 1px solid #C4C4C4;
+}
+
+QMenu::item {
+    padding: 4px 24px 4px 16px;
+    color: #1A1A1A;
+}
+
+QMenu::item:selected {
+    background-color: {ACCENT};
+    color: {ACCENT_TEXT};
+}
+
+QMenu::separator {
+    height: 1px;
+    background-color: #C4C4C4;
+    margin: 2px 0;
+}

@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QPushButton, QWidget,
-    QSizePolicy, QSystemTrayIcon, QMenu,
+    QSystemTrayIcon, QMenu,
 )
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
 from PyQt6.QtCore import Qt
@@ -85,6 +85,7 @@ class MainWindow(QMainWindow):
 
         # 시그널 연결
         self._month_view.request_new_task.connect(self._on_new_task)
+        self._month_view.request_new_task_range.connect(self._on_new_task_range)
         self._month_view.request_edit_task.connect(self._on_edit_task)
         self._list_view.request_edit_task.connect(self._on_edit_task)
         self._kanban_view.request_edit_task.connect(self._on_edit_task)
@@ -116,6 +117,13 @@ class MainWindow(QMainWindow):
         self._plugin_menu.addAction("플러그인 관리...", self._on_manage_plugins)
         self._plugin_menu.addSeparator()
 
+        settings_menu = menubar.addMenu("설정")
+        self._action_theme = settings_menu.addAction(self._theme_label())
+        self._action_theme.triggered.connect(self._toggle_theme)
+        settings_menu.addAction("포인트색...", self._pick_accent)
+        settings_menu.addSeparator()
+        settings_menu.addAction("앱 설정...", self._on_open_settings)
+
     def _refresh_plugin_menu(self):
         """플러그인 메뉴의 플러그인 액션을 최신 상태로 갱신한다."""
         actions = self._plugin_menu.actions()
@@ -139,23 +147,10 @@ class MainWindow(QMainWindow):
         btn_new.clicked.connect(self._on_add_task)
         tb.addWidget(btn_new)
         tb.addSeparator()
-        for idx, label in enumerate(["월 뷰", "목록", "칸반", "좌표변환"]):
+        for idx, label in enumerate(["달력", "목록", "칸반", "좌표변환"]):
             btn = QPushButton(label)
             btn.clicked.connect(lambda _, i=idx: self._stack.setCurrentIndex(i))
             tb.addWidget(btn)
-
-        spacer = QWidget()
-        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        tb.addWidget(spacer)
-
-        self._btn_theme = QPushButton(self._theme_label())
-        self._btn_theme.setFixedWidth(80)
-        self._btn_theme.clicked.connect(self._toggle_theme)
-        tb.addWidget(self._btn_theme)
-
-        btn_accent = QPushButton("포인트색")
-        btn_accent.clicked.connect(self._pick_accent)
-        tb.addWidget(btn_accent)
 
     # ── 시스템 트레이 ──────────────────────────────────────────────────────
     def _setup_tray(self):
@@ -246,7 +241,7 @@ class MainWindow(QMainWindow):
     def _toggle_theme(self):
         new = "dark" if self._theme.current_theme() == "light" else "light"
         self._theme.set_theme(new)
-        self._btn_theme.setText(self._theme_label())
+        self._action_theme.setText(self._theme_label())
 
     def _pick_accent(self):
         dlg = AccentPickerDialog(self._theme.current_accent(), self)
@@ -260,6 +255,10 @@ class MainWindow(QMainWindow):
 
     def _on_new_task(self, clicked_date):
         dlg = TaskDialog(self._store, default_date=clicked_date, parent=self)
+        dlg.exec()
+
+    def _on_new_task_range(self, start_date, end_date):
+        dlg = TaskDialog(self._store, default_date=start_date, default_end_date=end_date, parent=self)
         dlg.exec()
 
     def _on_generate_report(self):

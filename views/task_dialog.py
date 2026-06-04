@@ -58,11 +58,14 @@ class TaskDialog(QDialog):
     """
 
     def __init__(self, store, task: dict | None = None,
-                 default_date: date | None = None, parent=None):
+                 default_date: date | None = None,
+                 default_end_date: date | None = None,
+                 parent=None):
         super().__init__(parent)
         self._store = store
         self._task = task
         self._color = task["color"] if task else "#4A90D9"
+        self._default_end_date = default_end_date
 
         self.setWindowTitle("일감 수정" if task else "새 일감")
         self.setMinimumSize(500, 540)
@@ -116,11 +119,13 @@ class TaskDialog(QDialog):
         form.addRow("제목 *", self._title)
 
         # 기간
-        qd = QDate(default_date.year, default_date.month, default_date.day)
-        self._start = QDateEdit(qd)
+        qd_start = QDate(default_date.year, default_date.month, default_date.day)
+        end_d = self._default_end_date or default_date
+        qd_end = QDate(end_d.year, end_d.month, end_d.day)
+        self._start = QDateEdit(qd_start)
         self._start.setCalendarPopup(True)
         self._start.setDisplayFormat("yyyy-MM-dd")
-        self._end = QDateEdit(qd)
+        self._end = QDateEdit(qd_end)
         self._end.setCalendarPopup(True)
         self._end.setDisplayFormat("yyyy-MM-dd")
         date_row = QHBoxLayout()
