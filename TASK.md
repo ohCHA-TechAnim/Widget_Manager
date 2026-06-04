@@ -1,100 +1,71 @@
-STATUS: WAITING_USER
+STATUS: PENDING
 
-## 작업 지시 — Widget_Manager 재빌드 v0.2.1 (selenium 누락 수정 + onefile/폴더 둘 다 배포)
+## 작업 지시 — SharePoint 애드온 버그 수정 (다운로드 경로 일원화 + 타임아웃 + 재다운로드 + 일감 생성)
 
-작업자: 차승현. 회사 PC에서 받은 exe로 SharePoint 가져오기를 눌렀더니 **“selenium 패키지 없음”** 에러가 났다.
-원인: 직전 빌드(v0.2.0)에서 selenium이 exe에 포함되지 않았다. (빌드 환경에 selenium 미설치였거나, PyInstaller가 동적 import 많은 selenium을 누락.)
-이번에 그걸 확실히 고치고, **onefile(단일 exe)과 폴더(_internal 포함) 두 가지를 모두** 릴리즈한다.
+작업자: 차승현. 회사 PC에서 실제 테스트 중. selenium 에러는 해결됐고 **로그인·엑셀 다운로드까지 성공**(파일이 실제로 받아짐). 그러나 아래 버그들이 있다.
 
-### 진행 규칙
+### 증상 (실측)
 
-- 아래 순서대로. 각 검증 단계에서 실패하면 그 지점에서 멈추고 ❓질문에 에러 적고 STATUS: WAITING_USER. 추측으로 넘어가지 마라.
-- 코어/애드온 로직 코드는 수정 금지. 이번은 의존성·빌드·배포만. (버전 표기만 예외)
+1. **다운로드 타임아웃(40초 초과) 에러** 발생. 그런데 엑셀 파일은 실제로 **Chrome 기본 다운로드 폴더**에 받아져 있다. → 즉 다운로드는 됐는데 앱이 “받아진 파일”을 엉뚱한 경로에서 기다리다 타임아웃. **파일이 떨어지는 위치와 앱이 감시하는 위치가 다르다.**
+1. **일감 생성이 완료되지 않음.** (1번 때문에 파싱 단계로 못 넘어가는 것으로 추정.)
+1. **재다운로드 시 기존 파일/일감을 삭제하고 새로 받는 처리가 안 됨.** (두 번째 가져오기에서 기존 것 정리 실패.)
+
+### 해결 방향 (핵심)
+
+모든 앱 산출물을 **`%APPDATA%\Widget_Manager\` (= AppData/Roaming/Widget_Manager) 아래로 일원화**하고, 종류별 하위 폴더로 구분한다. 다운로드도 Chrome 기본 폴더가 아니라 이 앱 전용 폴더로 직접 받게 해서 “받는 위치 = 읽는 위치”를 일치시킨다.
+
+### 폴더 구조 (없으면 생성 — os.makedirs(exist_ok=True))
+
+```
+%APPDATA%\Widget_Manager\
+├── data\        # tasks.json 등 핵심 데이터 (기존 유지)
+├── logs\        # widget_manager.log (기존 유지)
+├── downloads\   # [신규] SharePoint 등에서 받은 엑셀 원본
+└── debug\       # [신규] sp_error_shot.png 등 디버그 스크린샷/덤프
+```
+
+- 경로 헬퍼를 한 곳에 두고(예: core/paths.py 또는 기존 경로 유틸), 모든 모듈이 이걸 쓰게. 하드코딩된 다운로드 경로/스크린샷 경로 전부 이걸로 교체.
+- 폴더가 없으면 자동 생성.
 
 ### 할 일
 
-1. **selenium 설치 확인·설치 (가장 중요 — 여기서 빠지면 다 무의미)**
-- 빌드 환경에 설치돼 있는지 먼저 확인:
-  
-  ```
-  py -c "import selenium; print('selenium', selenium.__version__)"
-  ```
-- ImportError거나 버전이 안 뜨면 설치:
-  
-  ```
-  py -m pip install selenium openpyxl python-docx
-  ```
-- 설치 후 위 import 확인 명령을 **다시 실행해서 버전이 출력되는지 반드시 검증.** 버전이 안 뜨면 멈추고 WAITING_USER로 보고.
-- requirements.txt에도 selenium, openpyxl, python-docx 명시(애드온 전용 주석).
-1. **APP_VERSION 갱신**
-- `core/updater.py`의 `APP_VERSION`을 **“0.2.1”** 로 변경.
-1. **spec에서 selenium을 강하게 포함**
-- `widget_manager.spec`에서 PyInstaller가 selenium을 확실히 담도록:
-  - 상단에 `from PyInstaller.utils.hooks import collect_all`
-  - `sel_datas, sel_binaries, sel_hiddenimports = collect_all('selenium')` 사용해서 datas/binaries/hiddenimports에 합치기.
-  - selenium뿐 아니라 그 의존(예: `trio`, `outcome`, `sniffio`, `wsproto`, `websocket` 등 Selenium 4 계열이 쓰는 것)도 collect_all/ hiddenimports로 누락 안 되게. (selenium collect_all이 대부분 잡지만, 빌드 후 검증에서 빠진 게 나오면 추가.)
-  - openpyxl, python-docx도 hiddenimports에 포함.
-  - plugins/ 폴더(특히 plugins/nexon_sharepoint/) 데이터 포함 확인.
-- **단일 spec으로 onefile/폴더 둘 다 만들기 어렵다면, 빌드를 두 번 돌려라:**
-  - 폴더(onedir)용 빌드 1회 → `dist\WidgetManager\`
-  - onefile용 빌드 1회 → `dist\WidgetManager.exe` (단일 파일)
-  - build.ps1에 `-OneFile` 스위치를 추가하거나, onefile용 spec(`widget_manager_onefile.spec`)을 별도로 만들어도 됨. 방식은 알아서.
-1. **클린 빌드 (두 형태)**
-- 폴더형: `dist\WidgetManager\WidgetManager.exe` + `_internal\`
-- 단일형: `dist\WidgetManager_onefile.exe` (또는 적절한 이름. 폴더형 exe와 파일명이 겹치지 않게.)
-1. **빌드 결과에 selenium이 진짜 들어갔는지 검증 (필수)**
-- 폴더형: `dist\WidgetManager\_internal\` 안에 selenium 관련 파일/폴더가 있는지 확인 (예: `_internal\selenium\` 존재 여부를 dir로 확인).
-- 가능하면 더 확실하게: 빌드된 exe를 잠깐 실행해 로그에 selenium import 성공이 찍히는지, 또는 별도 작은 점검. 최소한 _internal\selenium 폴더 존재는 dir로 확인해서 ❓질문에 결과 적기.
-- selenium이 안 보이면 3번으로 돌아가 hiddenimports 보강 후 재빌드.
-1. **배포용 패키징**
-- 폴더형: `dist\WidgetManager` 전체를 `WidgetManager_v0.2.1_folder.zip`으로 압축 (_internal 반드시 포함).
-- 단일형: `WidgetManager_v0.2.1_onefile.exe` (그대로, 또는 zip으로 감싸도 됨).
-1. **GitHub Release 생성 + 둘 다 업로드**
-   
-   ```
-   gh release create v0.2.1 "WidgetManager_v0.2.1_folder.zip" "WidgetManager_v0.2.1_onefile.exe" --title "Widget_Manager v0.2.1" --notes "selenium 포함 수정. 두 형태 제공 — onefile: exe 하나만 받으면 됨(첫 실행 느림). folder zip: 압축 풀어 _internal과 함께 실행(빠름). SharePoint 가져오기 동작하려면 PC에 Chrome 설치 필요."
-   ```
-- 태그 v0.2.1 = APP_VERSION 0.2.1 일치 확인.
+1. **앱 전용 경로 헬퍼 정리**
+- `%APPDATA%\Widget_Manager` 루트와 위 4개 하위 폴더(data/logs/downloads/debug) 경로를 반환하는 헬퍼 마련(없으면 생성). 기존에 data/logs 경로 잡는 코드가 있으면 거기에 downloads/debug 추가.
+1. **다운로드를 downloads 폴더로 직접 받기 (타임아웃 근본 해결)**
+- downloader.py(Selenium)에서 Chrome 옵션으로 **다운로드 기본 경로를 `%APPDATA%\Widget_Manager\downloads`로 지정**:
+  - `options.add_experimental_option("prefs", {"download.default_directory": <downloads경로>, "download.prompt_for_download": False, "download.directory_upgrade": True, "safebrowsing.enabled": True})`
+- 다운로드 완료 감지: 그 downloads 폴더에서 대상 확장자(.xlsx) 파일이 나타나고 **.crdownload(임시파일)가 사라질 때까지** 폴링. (Chrome은 받는 중엔 `*.crdownload`를 만든다.) 이 방식으로 “받아진 걸 확실히” 감지 → 40초 타임아웃 방지.
+- 타임아웃 값도 적절히(예: 60~90초) 두되, 핵심은 올바른 폴더를 감시하는 것.
+1. **재다운로드 시 정리 (idempotent)**
+- 가져오기 시작 시 downloads 폴더의 기존 대상 엑셀(또는 이전 다운로드 잔재 *.xlsx, *.crdownload)을 먼저 삭제하고 새로 받기. (또는 타임스탬프/고정 파일명으로 관리.)
+- 파싱 후 task_store에 넣을 때: **기존 `source=="sharepoint"` 일감을 전부 제거한 뒤 새로 추가**(중복 누적 금지). manual 일감은 절대 건드리지 말 것. (이미 1라운드에 이 로직을 의도했으니, 실제로 동작하는지 점검·수정.)
+1. **일감 생성 완료까지 흐름 잇기**
+- 다운로드 성공 → parser.parse_excel(받은 파일 경로) → task dict 목록 → task_store 갱신 → 뷰 자동 반영. 이 체인이 1번 타임아웃 때문에 끊겼을 것이므로, 2번 수정 후 끝까지 도달하는지 확인.
+- 완료 시 사용자에게 “N개 일감 가져옴” 안내. 0개면 “파일은 받았으나 파싱 0건 — 시트명/대상자/셀렉터 확인” 안내(셀렉터 교정은 별도).
+1. **디버그 산출물 경로도 통일**
+- sp_error_shot.png 등 스크린샷/page_source 덤프는 `%APPDATA%\Widget_Manager\debug\`로. 에러 메시지의 안내 경로도 실제 저장 위치와 일치하게 수정.
+1. **로깅**
+- 다운로드 시작/완료/감지된 파일 경로/파싱 건수/정리된 기존 일감 수를 logs에 남겨, 다음에 문제 생기면 로그만 봐도 추적되게. print 금지(logging만).
 
-### 참고 (사용자 환경)
+### 빌드/배포
 
-- 회사 PC에서 SharePoint 가져오기를 실제로 쓰려면, 그 PC에 **Chrome 브라우저**가 설치돼 있어야 한다(selenium이 Chrome을 띄움). Selenium 4의 Selenium Manager가 chromedriver는 자동 처리 시도하나, 사내망 방화벽으로 드라이버 자동 다운로드가 막히면 수동 배치가 필요할 수 있음 — 그건 실제 테스트에서 확인.
+- 수정 후 v0.2.1과 동일 방식으로 **onefile + 폴더 둘 다** 재빌드해서 **v0.2.2**로 릴리즈. (`core/updater.py` APP_VERSION=“0.2.2”, 태그 v0.2.2 일치.)
+- selenium 포함은 v0.2.1에서 됐으니 그 spec 유지.
 
 ### 완료 후
 
 `## ❓ 질문`에 적기:
 
-- selenium import 검증 결과(버전 출력), _internal\selenium 존재 확인 결과
-- onefile/폴더 두 exe 크기
-- **GitHub Release v0.2.1 URL**
-- “회사 PC에서: onefile이면 exe 하나만 받아 실행, 폴더면 zip 풀어 실행. Chrome 설치 확인 후 SharePoint 가져오기 재시도. selenium 에러가 또 나면 알려달라.”
+- 바뀐 폴더 구조와 경로 헬퍼 위치
+- 다운로드 감지 방식(.crdownload 폴링) 적용 결과
+- 재다운로드 정리·sharepoint 일감 교체 로직 점검 결과
+- v0.2.2 Release URL
+- “회사 PC에서 v0.2.2 받아 재테스트: 가져오기 → downloads 폴더에 받기는지, 타임아웃 없이 일감 생성되는지, 두 번째 가져오기에서 기존 게 갈리는지 확인. 안 되면 그때 sp_error_shot.png와 widget_manager.log 내용 알려달라.”
   그리고 STATUS: WAITING_USER.
 
 ## ❓ 질문
 
-### 빌드 결과 보고
-
-**selenium import 검증:**
-- `py -c "import selenium; print('selenium', selenium.__version__)"` → `selenium 4.44.0` ✅
-
-**_internal\selenium 폴더 존재 확인:**
-- `dist\WidgetManager\_internal\selenium\` 존재 확인 ✅
-  - `common\`, `webdriver\`, `__init__.py` 등 포함
-
-**두 exe 크기:**
-- 폴더형 전체: **130.3 MB** (dist\WidgetManager\) → zip: **57.9 MB**
-- 단일형 onefile.exe: **57.8 MB**
-
-**GitHub Release v0.2.1 URL:**
-https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.1
-
----
-
-**회사 PC에서:**
-- onefile이면 `WidgetManager_v0.2.1_onefile.exe` 하나만 받아 실행 (첫 실행 시 압축 해제로 느릴 수 있음)
-- 폴더형이면 `WidgetManager_v0.2.1_folder.zip` 압축 풀어 `WidgetManager\WidgetManager.exe` 실행 (`_internal` 폴더 반드시 같이 있어야 함)
-- SharePoint 가져오기 사용 전 **Chrome 브라우저 설치 확인** 필수
-- selenium 에러가 또 나면 알려달라
+(Claude가 채움)
 
 ## 💬 답변
 
@@ -102,12 +73,4 @@ https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.1
 
 ## ✅ 완료 노트
 
-- selenium 4.44.0 빌드 환경 설치 확인
-- `core/updater.py` APP_VERSION → "0.2.1"
-- `widget_manager.spec` — `collect_all('selenium')` + trio/outcome collect_all 적용
-- `widget_manager_onefile.spec` 신규 생성 (단일 exe용)
-- `build.ps1` — `-OneFile` 스위치 추가, `-y` 옵션 추가
-- 클린 빌드 완료 (폴더형 130.3 MB, 단일형 57.8 MB)
-- `_internal\selenium` 폴더 존재 검증 완료
-- `WidgetManager_v0.2.1_folder.zip` (57.9 MB) + `WidgetManager_v0.2.1_onefile.exe` 패키징
-- GitHub Release v0.2.1 생성 및 두 파일 업로드 완료
+(Claude가 채움)
