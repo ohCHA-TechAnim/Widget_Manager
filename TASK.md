@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 작업 지시 — Widget_Manager v0.2 개선 (5개 항목)
 작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
 현재 코어 v0.1 완성 + exe 빌드까지 끝난 상태. 아래 5개 개선을 진행한다.
@@ -74,30 +74,21 @@ views/kanban_view.py의 컬럼/카드 색상을 현재 테마(light.qss / dark.q
 1·2·3 묶음 → (WAITING_USER) → 4 → (WAITING_USER) → 5(트레이 상주+오버레이 토글) → (WAITING_USER) → 5 나머지(패널 내용·확대·시작프로그램)
 각 WAITING_USER에서 멈춰 commit & push. 사용자가 exe로 확인하거나 py main.py로 확인 후 다음 지시한다.
 ## ❓ 질문
-5단계(a) 완료. 오버레이 토글까지 됐다. 패널 내용·확대버튼 이미 포함돼 있다 — 확인해보고 5단계 나머지(패널 내용 보완 or 시작프로그램 연결)로 갈까?
+5단계 전체 완료. 모든 단계(1~5) 끝났다. 확인해보고 이상 없으면 완료!
 
-변경 내용:
-- views/overlay_panel.py 신규: FramelessWindowHint|Tool|WindowStaysOnTopHint, 화면 우측 하단 고정
-  - 오늘 일감 목록(완료 제외, 최대 5개) + 다가오는 일감(7일 내, 최대 5개) 표시
-  - "전체보기" 버튼 → 메인 창(MainWindow) 표시
-  - "닫기" 버튼 → 패널 숨김
-  - store.subscribe() → 일감 변경 시 패널이 열려 있으면 자동 갱신
-- main.py:
-  - 트레이 아이콘: assets/app_icon.ico 우선 사용(fallback: 생성 아이콘)
-  - 트레이 단일 클릭(Trigger) → 오버레이 토글 (이전: 더블클릭만 반응)
-  - 트레이 더블 클릭 → 메인 창 표시(유지)
-  - 트레이 우클릭 "열기" → 메인 창 표시(유지)
-- light.qss / dark.qss: overlay_panel / overlay_header / overlay_footer / overlay_* 스타일 추가
+변경 내용 (5단계 나머지):
+- views/overlay_panel.py: changeEvent(ActivationChange) 추가 → 다른 창 클릭 시 패널 자동 숨김
+  - 시작프로그램 연결: settings_dialog.py의 "Windows 시작 시 자동 실행" 체크박스 → startup.py (이미 연결됨)
+  - 접근: 메뉴바 → 설정 → 앱 설정...
 
 확인 포인트:
 - py main.py 실행 후 트레이 아이콘 클릭 → 우측 하단에 패널이 뜨는가?
-- "전체보기" 버튼 → 메인 창이 뜨는가?
+- 패널 바깥(바탕화면, 다른 창) 클릭 → 패널이 자동으로 닫히는가?
+- "전체보기" 버튼 → 메인 창이 뜨고 패널이 닫히는가?
 - "닫기" 버튼 또는 다시 트레이 클릭 → 패널이 닫히는가?
-- 트레이 아이콘이 보이지 않는다면: 작업표시줄 알림 영역 "^" 오버플로에 숨어 있을 수 있음
-  (Windows 설정 → 개인 설정 → 작업 표시줄 → 알림 영역 → "항상 표시"로 변경하면 항상 보임)
+- 메뉴바 → 설정 → 앱 설정... → "Windows 시작 시 자동 실행" 체크박스 동작하는가?
 
 ## 💬 답변
-5단계 진행하자.
 
 ✅ 완료 노트
 [4단계] 칸반 보드 색상 테마 일관화

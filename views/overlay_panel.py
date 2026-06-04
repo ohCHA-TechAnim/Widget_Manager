@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame,
 )
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, QEvent, pyqtSignal
 from PyQt6.QtGui import QGuiApplication
 
 logger = logging.getLogger(__name__)
@@ -190,3 +190,9 @@ class OverlayPanel(QWidget):
         super().showEvent(event)
         self.refresh()
         self._move_to_bottom_right()
+
+    def changeEvent(self, event):
+        """다른 창이 활성화되면 자동으로 패널을 숨긴다."""
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
+            self.hide()
