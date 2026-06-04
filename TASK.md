@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 작업 지시 — Widget_Manager 재빌드 + GitHub Releases 배포 (회사에서 exe 받기 위함)
 작업자: 차승현. 현재 v0.2 + nexon_sharepoint 애드온까지 코드 완료된 상태.
 사용자가 지금 회사에 있고, 집 PC(이 워처가 도는 PC)에서 만들어진 최신 exe를 회사 PC에서 받아 테스트하려 한다.
@@ -14,10 +14,10 @@ STATUS: PENDING
 	2.	spec에 애드온 의존성 포함
 	•	widget_manager.spec을 점검해서, exe에 selenium, openpyxl, python-docx, plugins/nexon_sharepoint/ 가 포함되도록 한다.
 	•	PyInstaller가 selenium을 누락하기 쉬우니 hiddenimports 또는 collect_all로 selenium을 명시적으로 포함. plugins 폴더 데이터도 포함 확인.
-	•	목표: 빌드된 exe에서 “SharePoint 일정 가져오기”를 눌렀을 때 “selenium 없음” 에러가 나지 않아야 한다.
+	•	목표: 빌드된 exe에서 "SharePoint 일정 가져오기"를 눌렀을 때 "selenium 없음" 에러가 나지 않아야 한다.
 	•	(단, chromedriver 자체는 사용자 PC의 Chrome에 맞춰야 하므로 exe에 안 넣어도 됨. selenium은 Selenium Manager로 드라이버 자동 처리 시도하니, 그 동작 확인.)
 	3.	버전 올리기
-	•	core/updater.py의 APP_VERSION을 “0.1.0” → “0.2.0” 으로 변경. (v0.2 + 애드온 반영 버전)
+	•	core/updater.py의 APP_VERSION을 "0.1.0" → "0.2.0" 으로 변경. (v0.2 + 애드온 반영 버전)
 	•	이건 코드 수정이지만 버전 표기라 예외로 허용.
 	4.	클린 재빌드
 	•	.\build.ps1 -Clean 으로 처음부터 새로 빌드.
@@ -28,4 +28,20 @@ STATUS: PENDING
 	•	반드시 _internal 폴더를 포함해야 함 (exe 혼자선 안 돌아감).
 	•	zip 이름 예: WidgetManager_v0.2.0.zip
 	6.	GitHub Release 생성 + 업로드
-	•	gh CLI로 릴리즈 생성하고 zip 첨부:
+	•	gh CLI로 릴리즈 생성하고 zip 첨부
+
+## ❓ 질문
+
+**모든 작업 완료. 결과 보고:**
+
+1. **의존성**: selenium 4.44.0 신규 설치 완료 (openpyxl 3.1.5, python-docx 기설치 확인)
+2. **spec 수정**: `widget_manager.spec`에 selenium, trio, trio-websocket, openpyxl hiddenimports 추가
+3. **버전 변경**: `core/updater.py` APP_VERSION `0.1.0` → `0.2.0`
+4. **빌드**: 클린 빌드 성공 (39초, 123MB), exe 기동 확인 OK
+5. **zip**: `WidgetManager_v0.2.0.zip` 생성 (55.7MB)
+6. **GitHub Release**: 생성 완료
+
+**릴리즈 URL**: https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.0
+
+회사에서 위 URL에서 `WidgetManager_v0.2.0.zip`을 다운받아 압축 해제 후 `WidgetManager.exe` 실행하면 됩니다.
+(주의: `_internal` 폴더와 exe가 같은 폴더에 있어야 함)
