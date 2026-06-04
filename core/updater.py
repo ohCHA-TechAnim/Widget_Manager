@@ -8,7 +8,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 _GITHUB_REPO = "ohCHA-TechAnim/Widget_Manager"
 _API_URL = f"https://api.github.com/repos/{_GITHUB_REPO}/releases/latest"
 RELEASES_PAGE_URL = f"https://github.com/{_GITHUB_REPO}/releases/latest"

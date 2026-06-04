@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## 작업 지시 — Widget_Manager 재빌드 v0.2.1 (selenium 누락 수정 + onefile/폴더 둘 다 배포)
 
@@ -72,7 +72,29 @@ STATUS: PENDING
 
 ## ❓ 질문
 
-(Claude가 채움)
+### 빌드 결과 보고
+
+**selenium import 검증:**
+- `py -c "import selenium; print('selenium', selenium.__version__)"` → `selenium 4.44.0` ✅
+
+**_internal\selenium 폴더 존재 확인:**
+- `dist\WidgetManager\_internal\selenium\` 존재 확인 ✅
+  - `common\`, `webdriver\`, `__init__.py` 등 포함
+
+**두 exe 크기:**
+- 폴더형 전체: **130.3 MB** (dist\WidgetManager\) → zip: **57.9 MB**
+- 단일형 onefile.exe: **57.8 MB**
+
+**GitHub Release v0.2.1 URL:**
+https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.1
+
+---
+
+**회사 PC에서:**
+- onefile이면 `WidgetManager_v0.2.1_onefile.exe` 하나만 받아 실행 (첫 실행 시 압축 해제로 느릴 수 있음)
+- 폴더형이면 `WidgetManager_v0.2.1_folder.zip` 압축 풀어 `WidgetManager\WidgetManager.exe` 실행 (`_internal` 폴더 반드시 같이 있어야 함)
+- SharePoint 가져오기 사용 전 **Chrome 브라우저 설치 확인** 필수
+- selenium 에러가 또 나면 알려달라
 
 ## 💬 답변
 
@@ -80,4 +102,12 @@ STATUS: PENDING
 
 ## ✅ 완료 노트
 
-(Claude가 채움)
+- selenium 4.44.0 빌드 환경 설치 확인
+- `core/updater.py` APP_VERSION → "0.2.1"
+- `widget_manager.spec` — `collect_all('selenium')` + trio/outcome collect_all 적용
+- `widget_manager_onefile.spec` 신규 생성 (단일 exe용)
+- `build.ps1` — `-OneFile` 스위치 추가, `-y` 옵션 추가
+- 클린 빌드 완료 (폴더형 130.3 MB, 단일형 57.8 MB)
+- `_internal\selenium` 폴더 존재 검증 완료
+- `WidgetManager_v0.2.1_folder.zip` (57.9 MB) + `WidgetManager_v0.2.1_onefile.exe` 패키징
+- GitHub Release v0.2.1 생성 및 두 파일 업로드 완료

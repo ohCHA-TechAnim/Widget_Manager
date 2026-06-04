@@ -1,11 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
-# Widget Manager — PyInstaller 빌드 스펙 (폴더형)
-# 빌드: pyinstaller widget_manager.spec --clean
+# Widget Manager — PyInstaller 빌드 스펙 (단일 exe)
+# 빌드: pyinstaller widget_manager_onefile.spec --clean
 
 import os
 from PyInstaller.utils.hooks import collect_all
 
-# selenium 전체 수집 (datas, binaries, hiddenimports)
+# selenium 전체 수집
 sel_datas, sel_binaries, sel_hiddenimports = collect_all('selenium')
 
 # selenium 주요 의존 패키지도 수집
@@ -17,16 +17,12 @@ a = Analysis(
     pathex=['.'],
     binaries=[] + sel_binaries + trio_binaries + outcome_binaries,
     datas=[
-        # QSS 테마 파일
         ('theme/light.qss',  'theme'),
         ('theme/dark.qss',   'theme'),
-        # 플러그인 디렉터리 (런타임 임포트용 .py 파일 포함)
         ('plugins',          'plugins'),
     ] + sel_datas + trio_datas + outcome_datas,
     hiddenimports=[
-        # PyQt6 — 프린트 지원 (python-docx에서 간접 참조 가능)
         'PyQt6.QtPrintSupport',
-        # python-docx 서브모듈 (auto-hook이 놓칠 수 있는 것)
         'docx',
         'docx.oxml',
         'docx.oxml.ns',
@@ -36,7 +32,6 @@ a = Analysis(
         'lxml',
         'lxml.etree',
         'lxml._elementpath',
-        # selenium 의존 (collect_all이 놓치는 서브모듈 보강)
         'selenium.webdriver.chrome',
         'selenium.webdriver.chrome.options',
         'selenium.webdriver.chrome.service',
@@ -44,11 +39,9 @@ a = Analysis(
         'selenium.webdriver.support.ui',
         'selenium.webdriver.support.expected_conditions',
         'selenium.common.exceptions',
-        # selenium 비동기/소켓 의존
         'sniffio',
         'wsproto',
         'websocket',
-        # openpyxl
         'openpyxl',
         'openpyxl.styles',
         'openpyxl.utils',
@@ -62,29 +55,20 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
-# 아이콘 파일이 없으면 None으로 폴백
 _icon = 'assets/app_icon.ico' if os.path.exists('assets/app_icon.ico') else None
 
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
-    name='WidgetManager',
+    name='WidgetManager_v0.2.1_onefile',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
     console=False,
     icon=_icon,
-)
-
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='WidgetManager',   # dist/WidgetManager/ 폴더에 생성
+    onefile=True,
 )
