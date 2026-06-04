@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 작업 지시 — Widget_Manager v0.2 개선 (5개 항목)
 작업자: 차승현(Nexon 3D TA). 한국어 주석. PyQt6.
 현재 코어 v0.1 완성 + exe 빌드까지 끝난 상태. 아래 5개 개선을 진행한다.
@@ -74,12 +74,29 @@ views/kanban_view.py의 컬럼/카드 색상을 현재 테마(light.qss / dark.q
 1·2·3 묶음 → (WAITING_USER) → 4 → (WAITING_USER) → 5(트레이 상주+오버레이 토글) → (WAITING_USER) → 5 나머지(패널 내용·확대·시작프로그램)
 각 WAITING_USER에서 멈춰 commit & push. 사용자가 exe로 확인하거나 py main.py로 확인 후 다음 지시한다.
 ## ❓ 질문
-1·2·3단계 완료(설정메뉴/드래그선택+기간일감/라벨변경). 확인해보고, 4단계(칸반 색상 일관화) 갈까?
+4단계 완료. 칸반 색상 이렇게 정리했다.
+
+변경 내용:
+- 컬럼 패널: 하드코딩 밝은 파스텔 → objectName(kanban_col_todo/doing/done) 부여, QSS에서 테마별 차분한 색 적용
+  - 라이트: #EEF4FC(파랑) / #FBF7EE(주황) / #EEF9F2(초록) — 매우 연한 틴트
+  - 다크: #252D3A / #2B2720 / #202B26 — 다크 테마에 맞는 어두운 틴트
+- 헤더 레이블: objectName(kanban_hdr_todo/doing/done) → QSS에서 상태별 색상 텍스트 + 하단 구분선
+  - 라이트: 파랑(#2D6499) / 주황(#8A5A10) / 초록(#1F7040)
+  - 다크: 라이트블루(#7BAED4) / 골드(#D4B060) / 민트(#70BE90)
+- 테마 전환 시 자동 반영 (ThemeManager.set_theme() → 앱 QSS 재적용으로 칸반도 함께 변경)
+- 카드 아이템 색상(사용자 지정 포인트색)은 기존 그대로 유지
+
+확인해보고, 가장 큰 5단계(트레이 오버레이) 갈까?
 
 ## 💬 답변
-1·2·3단계 확인했다. 좋다. 4단계(칸반 색상 테마 일관화) 진행해라.
-끝나면 WAITING_USER로 멈춰라.
 ✅ 완료 노트
+[4단계] 칸반 보드 색상 테마 일관화
+- kanban_view.py: _COLS에서 하드코딩 배경색 제거, panel/header에 objectName 부여
+- light.qss / dark.qss: kanban_col_* / kanban_hdr_* QSS 규칙 추가 (테마 전환 자동 반영)
+- 라이트/다크 각각에서 자연스럽게 보이는 차분한 톤으로 조정
+- 카드 아이템 색상은 사용자 지정값 그대로 유지
+
+
 [1단계] 설정 메뉴 신설 + 라이트모드 글자 잘림 수정
 - 메뉴바에 "설정" 메뉴 추가 (테마 전환 / 포인트색... / 앱 설정...)
 - 툴바에서 테마 토글·포인트색 버튼 제거 → 툴바 깔끔해짐

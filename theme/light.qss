@@ -262,3 +262,30 @@ QMenu::separator {
     background-color: #C4C4C4;
     margin: 2px 0;
 }
+
+/* ── 칸반 컬럼 ── */
+QWidget#kanban_col_todo  { background-color: #EEF4FC; }
+QWidget#kanban_col_doing { background-color: #FBF7EE; }
+QWidget#kanban_col_done  { background-color: #EEF9F2; }
+
+QLabel#kanban_hdr_todo {
+    color: #2D6499;
+    font-weight: bold;
+    background-color: transparent;
+    border-bottom: 1px solid #BDD6F0;
+    padding-bottom: 3px;
+}
+QLabel#kanban_hdr_doing {
+    color: #8A5A10;
+    font-weight: bold;
+    background-color: transparent;
+    border-bottom: 1px solid #E8C880;
+    padding-bottom: 3px;
+}
+QLabel#kanban_hdr_done {
+    color: #1F7040;
+    font-weight: bold;
+    background-color: transparent;
+    border-bottom: 1px solid #88D8A8;
+    padding-bottom: 3px;
+}

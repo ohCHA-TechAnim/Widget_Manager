@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import (
 logger = logging.getLogger(__name__)
 
 _COLS = [
-    ("todo",  "할 일",   "#EAF4FF"),
-    ("doing", "진행 중", "#FFFBEA"),
-    ("done",  "완료",    "#EAFAF1"),
+    ("todo",  "할 일"),
+    ("doing", "진행 중"),
+    ("done",  "완료"),
 ]
 
 
@@ -62,18 +62,16 @@ class KanbanView(QWidget):
         root.setContentsMargins(4, 4, 4, 4)
         root.setSpacing(6)
 
-        for status, label, bg in _COLS:
+        for status, label in _COLS:
             panel = QWidget()
-            panel.setStyleSheet(f"QWidget {{ background-color: {bg}; }}")
+            panel.setObjectName(f"kanban_col_{status}")   # QSS에서 컬럼 배경 지정
             vbox = QVBoxLayout(panel)
             vbox.setContentsMargins(4, 4, 4, 4)
             vbox.setSpacing(4)
 
             hdr = QLabel(label)
+            hdr.setObjectName(f"kanban_hdr_{status}")     # QSS에서 헤더 색상 지정
             hdr.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            f = hdr.font()
-            f.setBold(True)
-            hdr.setFont(f)
             vbox.addWidget(hdr)
 
             col = _KanbanColumn(status)
