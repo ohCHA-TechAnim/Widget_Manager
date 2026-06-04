@@ -1,5 +1,11 @@
 STATUS: WAITING_USER
 
+## ✅ git commit & push + exe 확인 완료 (2026-06-05)
+
+- git push: `fc886e8` → origin/main 최신
+- `dist\WidgetManager\WidgetManager.exe` — 기동 확인 (PID 정상, 5초 유지)
+- 다음 단계는 사용자가 직접 exe 실행 후 결정
+
 ## ✅ 2단계 완료 보고 — 배포/패키징 (PyInstaller exe 빌드)
 
 완료된 내용:
