@@ -27,6 +27,10 @@ class NexonSharePointPlugin(PluginBase):
         self._pending_sheet: str = "애니메이션"
         self._pending_target: str = ""
         self._pending_file_keyword: str = "스케쥴_애니메이션팀(2026)"
+        self._pending_nexon_id: str = ""
+        self._pending_library_url: str = ""
+        self._login_attempts: int = 0
+        self._max_login_attempts: int = 3  # 비밀번호 시도 최대 횟수
 
     # ── 수명 주기 ─────────────────────────────────────────────────────────
     def on_load(self, ctx):
@@ -60,7 +64,6 @@ class NexonSharePointPlugin(PluginBase):
         parent = self._ctx.main_window if self._ctx else None
         dlg = SharePointSettingsDialog(self._ctx, parent)
         dlg.exec()
-        # 설정 변경 후 메뉴 갱신 (main_window가 _refresh_plugin_menu를 노출하면 호출)
         mw = self._ctx.main_window if self._ctx else None
         if mw and hasattr(mw, "_refresh_plugin_menu"):
             mw._refresh_plugin_menu()
@@ -102,7 +105,7 @@ class NexonSharePointPlugin(PluginBase):
 
         # downloader 지연 임포트 (Selenium 없어도 플러그인 로드 가능)
         try:
-            from plugins.nexon_sharepoint.downloader import SharePointDownloader
+            from plugins.nexon_sharepoint.downloader import SharePointDownloader  # noqa: F401
         except ImportError as exc:
             QMessageBox.critical(
                 parent,
@@ -116,22 +119,42 @@ class NexonSharePointPlugin(PluginBase):
         self._pending_sheet = sheet_name
         self._pending_target = target_name
         self._pending_file_keyword = file_keyword
+        self._pending_nexon_id = nexon_id
+        self._pending_library_url = library_url
+        self._login_attempts = 0  # 비밀번호 시도 횟수 초기화
+
+        self._start_downloader(pw.strip())
+
+    def _start_downloader(self, nexon_pw: str) -> None:
+        """새 다운로더 스레드를 생성하고 시작한다."""
+        if self._ctx is None:
+            return
+
+        try:
+            from plugins.nexon_sharepoint.downloader import SharePointDownloader
+        except ImportError:
+            return
 
         self._downloader = SharePointDownloader(
-            target_name=target_name,
-            nexon_id=nexon_id,
-            nexon_pw=pw.strip(),
-            library_url=library_url,
-            file_keyword=file_keyword,
+            target_name=self._pending_target,
+            nexon_id=self._pending_nexon_id,
+            nexon_pw=nexon_pw,
+            library_url=self._pending_library_url,
+            file_keyword=self._pending_file_keyword,
         )
         self._downloader.progress_signal.connect(self._on_progress)
         self._downloader.finished_signal.connect(self._on_download_finished)
         self._downloader.failed_signal.connect(self._on_download_failed)
         self._downloader.start()
-        logger.info("SharePoint 다운로드 스레드 시작")
+        logger.info(
+            "SharePoint 다운로드 스레드 시작 (시도 %d/%d)",
+            self._login_attempts + 1,
+            self._max_login_attempts,
+        )
 
-        if parent and hasattr(parent, "statusBar"):
-            parent.statusBar().showMessage("SharePoint 일정 다운로드 중...", 0)
+        mw = self._ctx.main_window if self._ctx else None
+        if mw and hasattr(mw, "statusBar"):
+            mw.statusBar().showMessage("SharePoint 일정 다운로드 중...", 0)
 
     def _on_progress(self, percent: int, message: str):
         logger.debug("SharePoint %d%% — %s", percent, message)
@@ -145,7 +168,6 @@ class NexonSharePointPlugin(PluginBase):
         if mw and hasattr(mw, "statusBar"):
             mw.statusBar().showMessage("SharePoint 엑셀 파싱 중...", 0)
 
-        # parser 지연 임포트 (openpyxl 없어도 플러그인 로드 가능)
         try:
             from plugins.nexon_sharepoint.parser import parse_excel
         except ImportError as exc:
@@ -187,8 +209,46 @@ class NexonSharePointPlugin(PluginBase):
             )
 
     def _on_download_failed(self, error_msg: str):
-        logger.error("SharePoint 다운로드 실패: %s", error_msg)
+        from plugins.nexon_sharepoint.downloader import LOGIN_FAILED_PREFIX
+
         mw = self._ctx.main_window if self._ctx else None
+
+        if error_msg.startswith(LOGIN_FAILED_PREFIX):
+            self._login_attempts += 1
+
+            if self._login_attempts < self._max_login_attempts:
+                # 비밀번호 재입력 다이얼로그
+                new_pw, ok = QInputDialog.getText(
+                    mw,
+                    "비밀번호 오류",
+                    f"비밀번호가 올바르지 않습니다. 다시 입력해주세요.\n"
+                    f"({self._login_attempts}/{self._max_login_attempts - 1}번 시도)",
+                    QLineEdit.EchoMode.Password,
+                )
+                if ok and new_pw.strip():
+                    self._start_downloader(new_pw.strip())
+                    return
+                # 사용자가 취소한 경우 조용히 종료
+                if mw and hasattr(mw, "statusBar"):
+                    mw.statusBar().showMessage("SharePoint 로그인 취소됨", 3000)
+                return
+
+            # 최대 시도 횟수 초과
+            logger.error(
+                "SharePoint 로그인 %d회 실패 — 중단", self._max_login_attempts
+            )
+            if mw and hasattr(mw, "statusBar"):
+                mw.statusBar().showMessage("SharePoint 로그인 실패", 5000)
+            QMessageBox.critical(
+                mw,
+                "로그인 실패",
+                f"비밀번호를 {self._max_login_attempts}회 모두 잘못 입력했습니다.\n"
+                "넥슨 계정 ID와 비밀번호를 다시 확인하세요.",
+            )
+            return
+
+        # 로그인 외 일반 실패
+        logger.error("SharePoint 다운로드 실패: %s", error_msg)
         if mw and hasattr(mw, "statusBar"):
             mw.statusBar().showMessage("SharePoint 다운로드 실패", 5000)
         QMessageBox.critical(
@@ -198,7 +258,7 @@ class NexonSharePointPlugin(PluginBase):
             "확인 사항:\n"
             "• Chrome/chromedriver 버전 일치 여부\n"
             "• 넥슨 ID·비밀번호·라이브러리 URL 정확성\n"
-            "• 디버그 스크린샷: AppData\\Roaming\\Widget_Manager\\debug\\sp_error_shot.png\n"
+            "• 디버그 스크린샷: AppData\\Roaming\\Widget_Manager\\debug\\\n"
             "• 로그: AppData\\Roaming\\Widget_Manager\\logs\\widget_manager.log",
         )
 
