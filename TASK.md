@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## 작업 지시 — 엑셀 파싱 크래시 수정 (예외 격리 + 진단 강화) v0.2.4
 
@@ -51,7 +51,48 @@ STATUS: PENDING
 
 ## ❓ 질문
 
-(Claude가 채움)
+### 예외 격리 — 어디에 어떻게 넣었는지
+
+**1. `main.py` — `sys.excepthook`**
+- 앱 전체에서 처리되지 않은 모든 예외를 `widget_manager.log`에 전체 트레이스백으로 기록.
+- 앱이 조용히 죽더라도 로그에 원인이 남음.
+
+**2. `plugins/nexon_sharepoint/__init__.py` — `_on_download_finished`**
+- 파싱 호출(`parse_excel`)과 동기화(`_sync_tasks`) 전체를 각각 `try/except`로 감쌈.
+- 예외 발생 시: `logger.exception()`으로 전체 트레이스백 → 사용자에게 "앱 정상 유지됨" 안내 팝업 → return(정상 복귀). 앱이 꺼지지 않음.
+
+**3. `plugins/nexon_sharepoint/parser.py` — `parse_excel` 내부**
+- `excel_path = Path(excel_path)` 를 함수 첫 줄에 추가 → **이게 핵심 크래시 원인** (`str.exists()` AttributeError).
+- 병합 셀 처리 루프: 각 `crange` 항목마다 `try/except` (건너뜀).
+- 컬럼 루프 전체: 열 단위 `try/except` (실패한 열만 건너뜀, 나머지 계속).
+- `fill.start_color.rgb` → `getattr(..., "rgb", None)`으로 안전 접근.
+
+### 파싱 단계 로깅 — 무엇을 남기는지
+
+파싱 진입 후 INFO 레벨로 순서대로:
+1. `워크북 열기 성공: <파일명>`
+2. `시트 목록 (N개): ['시트1', '시트2', ...]`  ← **시트명 확인용 핵심 로그**
+3. 시트명 불일치 시: `설정 시트 'X' 없음 → 첫 번째 시트 'Y'로 폴백. 사용 가능한 시트: [...]` (WARNING)
+4. `사용 시트: '시트명'`
+5. `시트 크기: N행 × M열`
+6. `병합 셀 룩업 구축 완료: K개 항목`
+7. 날짜 파싱 실패 열: DEBUG 로그 후 건너뜀
+8. 컬럼 처리 중 예외: WARNING + 트레이스백
+9. `SharePoint 파싱 완료: N개 일감 (대상자: 이름)`
+
+### v0.2.4 Release URL
+
+https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.4
+
+---
+
+**회사 PC에서 v0.2.4 받아 재테스트 요청:**
+
+이번엔 파싱이 실패해도 앱이 안 죽고 `widget_manager.log`에 전체 트레이스백이 남습니다.
+
+가져오기 후:
+- **성공하면**: 일감 수를 알려주세요.
+- **실패하면**: 로그의 트레이스백(파싱 관련 부분)과 **시트 목록 로그** (`시트 목록 (N개): [...]` 줄)를 알려주세요. 그걸로 실제 엑셀 구조에 맞춰 파서를 고치겠습니다.
 
 ## 💬 답변
 
@@ -59,4 +100,17 @@ STATUS: PENDING
 
 ## ✅ 완료 노트
 
-(Claude가 채움)
+### v0.2.4 변경 요약
+
+| 파일 | 변경 내용 |
+|---|---|
+| `main.py` | `sys.excepthook` 추가 — 미처리 예외 로그 기록 |
+| `plugins/nexon_sharepoint/__init__.py` | `_on_download_finished`: 파싱+동기화 try/except 격리 |
+| `plugins/nexon_sharepoint/parser.py` | str→Path 변환(크래시 원인), 시트 폴백, 상세 로깅, 행/병합셀 오류 격리 |
+| `core/updater.py` | APP_VERSION 0.2.3 → 0.2.4 |
+| `widget_manager_onefile.spec` | 출력 파일명 v0.2.4 |
+
+### 핵심 크래시 원인
+
+`finished_signal.emit(str(found))` → `_on_download_finished(excel_path: str)` → `parse_excel(excel_path=excel_path)` → `excel_path.exists()` ← **str에는 `.exists()` 없음 → AttributeError → Qt 슬롯 예외 → 앱 종료**.
+`parser.py` 첫 줄에 `excel_path = Path(excel_path)` 추가로 수정 완료.
