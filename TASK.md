@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 작업 지시 — SharePoint 일감 다듬기 (메모 정리 / 링크 관리 / 색상 / 작은창 상세보기) v0.2.5
 작업자: 차승현. 큰 진전: v0.2.4에서 파싱까지 완전 성공. 엑셀 일감이 달력에 잘 들어온다. 이제 다듬는 단계. 아래 5가지를 개선한다.
 진행 규칙
@@ -47,8 +47,52 @@ STATUS: PENDING
 	•	“회사 PC에서 v0.2.5 받아 확인: 메모에 엑셀 안내문 안 들어오는지 / 링크 이름 짓고 더블클릭 열림(폴더·URL)되는지 / 색상 구분되는지 / 작은창에서 일감 더블클릭 상세보기 뜨는지.”
 그리고 STATUS: WAITING_USER.
 ❓ 질문
-(Claude가 채움)
+없음 — 5가지 모두 명확하게 처리.
+
 💬 답변
 (사용자가 채움)
+
 ✅ 완료 노트
-(Claude가 채움)
+
+### 1. 엑셀 시스템 텍스트 제거 (parser.py)
+- `_clean_excel_comment()` 함수 추가
+- `[Threaded comment]`, `Your version of Excel...Learn more:` 제거 (regex, DOTALL)
+- `go.microsoft.com/fwlink` URL 제거 (코멘트 및 하이퍼링크 양쪽에서 필터)
+
+### 2. 링크 이름 관리 (parser.py)
+- 엑셀 실제 하이퍼링크 추출: `cell.hyperlink.target` 이미 사용 중이었음.
+  더미 링크(`go.microsoft.com/fwlink`) 필터 추가로 완성.
+- `_infer_link_name(path)` 함수 추가: URL은 마지막 경로 세그먼트, 로컬 경로는 파일/폴더명
+- 기존 `{"name": j, "path": j}` → `{"name": _infer_link_name(j), "path": j}` 로 변경
+
+### 3. 링크 더블클릭 열기 (task_dialog.py)
+- `import os, webbrowser` 추가
+- `_open_item(item)` 메서드 추가 (http/https → `webbrowser.open`, 나머지 → `os.startfile`)
+- 지라·폴더·첨부 리스트에 `itemDoubleClicked.connect(self._open_item)` 연결
+
+### 4. 상태별 기본 색상 (parser.py)
+- `_status_default_color(status)` 함수 추가
+- 색상 결정 기준: 공동 일감은 `#00BFFF` 유지, 유효한 셀 색이 없는 경우(`""`, `#000000`, `#FFFFFF`) → 상태별 기본색
+  - todo → `#5A8F6A` (중간 녹색)
+  - doing → `#C8803A` (중간 앰버/주황)
+  - done → `#7A7A8A` (차분한 회색)
+- 엑셀 셀에 실제 색상이 있으면 그 색상 그대로 사용
+
+### 5. 작은창 더블클릭 상세보기 (overlay_panel.py)
+- `_TaskLabel(QLabel)` 클래스 추가: `double_clicked(dict)` 시그널 + 손가락 커서 + 툴팁
+- `_popup_active = False` 플래그 추가
+- `_show_task_detail(task)`: `_popup_active=True` → `TaskDialog.exec()` → `finally: _popup_active=False`
+- `changeEvent`: `and not self._popup_active` 조건 추가로 팝업 동안 자동숨김 방지
+
+### 빌드/릴리즈
+- `APP_VERSION = "0.2.5"` (core/updater.py)
+- `widget_manager_onefile.spec` 파일명 v0.2.5로 업데이트
+- 폴더형 + onefile 두 빌드 완료
+- 릴리즈: https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.5
+
+### 회사 PC 확인 체크리스트
+- [ ] 메모에 엑셀 안내문([Threaded comment] 등)이 들어오지 않는지
+- [ ] 링크 이름이 경로에서 자동 추론되는지
+- [ ] 링크 더블클릭 시 폴더·URL이 바로 열리는지
+- [ ] 색상 구분: todo=녹, doing=앰버, done=회색
+- [ ] 작은창에서 일감 더블클릭 → 상세보기 다이얼로그가 뜨는지
