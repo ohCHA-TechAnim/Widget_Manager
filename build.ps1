@@ -6,7 +6,7 @@
   1. PyInstaller 설치 확인
   2. 아이콘 생성 (assets/app_icon.ico)
   3. 폴더형 빌드 → dist\WidgetManager\WidgetManager.exe
-  4. -OneFile 지정 시 단일 exe 추가 빌드 → dist\WidgetManager_v0.2.1_onefile.exe
+  4. -OneFile 지정 시 단일 exe 추가 빌드 → dist\WidgetManager_v0.2.2_onefile.exe
 
 .PARAMETER Clean
   이전 빌드 캐시를 제거하고 처음부터 빌드한다.
@@ -88,10 +88,10 @@ Write-Host "=============================" -ForegroundColor Magenta
 Write-Host "폴더형 실행 파일 : $exePath"
 Write-Host "폴더형 배포 크기 : $distSize  (dist\WidgetManager\ 전체)"
 if ($OneFile) {
-    $onefileSize = if (Test-Path "dist\WidgetManager_v0.2.1_onefile.exe") {
-        "{0:N1} MB" -f ((Get-Item "dist\WidgetManager_v0.2.1_onefile.exe").Length / 1MB)
+    $onefileSize = if (Test-Path "dist\WidgetManager_v0.2.2_onefile.exe") {
+        "{0:N1} MB" -f ((Get-Item "dist\WidgetManager_v0.2.2_onefile.exe").Length / 1MB)
     } else { "?" }
-    Write-Host "단일형 실행 파일 : dist\WidgetManager_v0.2.1_onefile.exe"
+    Write-Host "단일형 실행 파일 : dist\WidgetManager_v0.2.2_onefile.exe"
     Write-Host "단일형 크기      : $onefileSize"
 }
 Write-Host ""

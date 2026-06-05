@@ -63,7 +63,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='WidgetManager_v0.2.1_onefile',
+    name='WidgetManager_v0.2.2_onefile',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

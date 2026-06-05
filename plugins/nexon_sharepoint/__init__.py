@@ -102,9 +102,7 @@ class NexonSharePointPlugin(PluginBase):
 
         # downloader 지연 임포트 (Selenium 없어도 플러그인 로드 가능)
         try:
-            from plugins.nexon_sharepoint.downloader import (
-                SharePointDownloader, EXCEL_PATH,
-            )
+            from plugins.nexon_sharepoint.downloader import SharePointDownloader
         except ImportError as exc:
             QMessageBox.critical(
                 parent,
@@ -118,7 +116,6 @@ class NexonSharePointPlugin(PluginBase):
         self._pending_sheet = sheet_name
         self._pending_target = target_name
         self._pending_file_keyword = file_keyword
-        self._excel_path = EXCEL_PATH
 
         self._downloader = SharePointDownloader(
             target_name=target_name,
@@ -142,8 +139,8 @@ class NexonSharePointPlugin(PluginBase):
         if mw and hasattr(mw, "statusBar"):
             mw.statusBar().showMessage(f"SharePoint: {message} ({percent}%)", 0)
 
-    def _on_download_finished(self):
-        logger.info("SharePoint 다운로드 완료 — 파싱 시작")
+    def _on_download_finished(self, excel_path: str):
+        logger.info("SharePoint 다운로드 완료 — 파싱 시작: %s", excel_path)
         mw = self._ctx.main_window if self._ctx else None
         if mw and hasattr(mw, "statusBar"):
             mw.statusBar().showMessage("SharePoint 엑셀 파싱 중...", 0)
@@ -158,11 +155,12 @@ class NexonSharePointPlugin(PluginBase):
             return
 
         tasks = parse_excel(
-            excel_path=self._excel_path,
+            excel_path=excel_path,
             target_name=self._pending_target,
             sheet_name=self._pending_sheet,
             target_year=date.today().year,
         )
+        logger.info("SharePoint 파싱 완료: %d건", len(tasks))
 
         self._sync_tasks(tasks)
 
@@ -170,13 +168,23 @@ class NexonSharePointPlugin(PluginBase):
             mw.statusBar().showMessage(
                 f"SharePoint 완료: {len(tasks)}개 일감 반영", 5000
             )
-        QMessageBox.information(
-            mw,
-            "SharePoint 일정 가져오기 완료",
-            f"{len(tasks)}개 일감이 달력에 반영되었습니다.\n\n"
-            "실제 로그인·다운로드 테스트는 회사 PC에서 진행해 주세요.\n"
-            "(Chrome/chromedriver 버전 일치 필요)",
-        )
+
+        if tasks:
+            QMessageBox.information(
+                mw,
+                "SharePoint 일정 가져오기 완료",
+                f"{len(tasks)}개 일감이 달력에 반영되었습니다.",
+            )
+        else:
+            QMessageBox.warning(
+                mw,
+                "SharePoint 일정 가져오기",
+                "파일은 받았으나 파싱 결과가 0건입니다.\n\n"
+                "확인 사항:\n"
+                "• 시트 이름이 설정과 일치하는지\n"
+                "• 대상자 이름이 엑셀 내 표기와 일치하는지\n"
+                "• 셀렉터(열 구조) 변경 여부",
+            )
 
     def _on_download_failed(self, error_msg: str):
         logger.error("SharePoint 다운로드 실패: %s", error_msg)
@@ -190,8 +198,8 @@ class NexonSharePointPlugin(PluginBase):
             "확인 사항:\n"
             "• Chrome/chromedriver 버전 일치 여부\n"
             "• 넥슨 ID·비밀번호·라이브러리 URL 정확성\n"
-            "• 디버그 파일: AppData/Roaming/Widget_Manager/data/sp_error_shot.png\n"
-            "• 로그: AppData/Roaming/Widget_Manager/logs/widget_manager.log",
+            "• 디버그 스크린샷: AppData\\Roaming\\Widget_Manager\\debug\\sp_error_shot.png\n"
+            "• 로그: AppData\\Roaming\\Widget_Manager\\logs\\widget_manager.log",
         )
 
     def _sync_tasks(self, new_tasks: list[dict]):

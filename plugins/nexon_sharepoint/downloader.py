@@ -2,11 +2,9 @@
 
 TaskHub/utils/selenium_downloader.py 를 Widget_Manager 플러그인으로 이식.
 검증된 부분: MS 로그인 흐름, stale element 재시도(_act_with_retry), 디버그 덤프.
-변경 사항: print() → logging, 경로를 Widget_Manager AppData로, file_keyword 파라미터화.
+변경 사항: print() → logging, 다운로드 경로 AppData/downloads로 일원화.
 """
 import logging
-import os
-import shutil
 import time
 from pathlib import Path
 
@@ -19,18 +17,18 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver import ActionChains
 from selenium.common.exceptions import StaleElementReferenceException
 
+from utils.resource_path import get_downloads_dir, get_debug_dir
+
 logger = logging.getLogger(__name__)
 
-# 다운받은 엑셀 저장 경로: %APPDATA%\Widget_Manager\data\
-_DATA_DIR = Path.home() / "AppData" / "Roaming" / "Widget_Manager" / "data"
-EXCEL_PATH = _DATA_DIR / "sharepoint_schedule.xlsx"
+_DOWNLOAD_TIMEOUT = 60  # seconds — Chrome 다운로드 완료 최대 대기
 
 
 class SharePointDownloader(QThread):
     """SharePoint 라이브러리에서 엑셀을 비동기 다운로드하는 QThread."""
 
     progress_signal = pyqtSignal(int, str)   # (퍼센트, 메시지)
-    finished_signal = pyqtSignal()
+    finished_signal = pyqtSignal(str)        # 다운로드 완료된 파일 절대 경로
     failed_signal = pyqtSignal(str)
 
     def __init__(
@@ -69,16 +67,44 @@ class SharePointDownloader(QThread):
         if last_exc:
             raise last_exc
 
-    def _dump_debug(self, driver):
-        """실패 시 스크린샷·HTML 덤프 저장 (진단용). TaskHub 패턴 유지."""
+    def _dump_debug(self, driver) -> None:
+        """실패 시 스크린샷·HTML 덤프를 debug 폴더에 저장 (진단용)."""
         try:
-            _DATA_DIR.mkdir(parents=True, exist_ok=True)
-            driver.save_screenshot(str(_DATA_DIR / "sp_error_shot.png"))
-            with open(_DATA_DIR / "sp_error_page.html", "w", encoding="utf-8") as f:
+            debug_dir = get_debug_dir()
+            driver.save_screenshot(str(debug_dir / "sp_error_shot.png"))
+            with open(debug_dir / "sp_error_page.html", "w", encoding="utf-8") as f:
                 f.write(driver.page_source)
-            logger.info("디버그 덤프 저장: %s", _DATA_DIR)
+            logger.info("디버그 덤프 저장: %s", debug_dir)
         except Exception:
             logger.exception("디버그 덤프 저장 실패")
+
+    def _clean_downloads_dir(self, downloads_dir: Path) -> None:
+        """재다운로드 idempotency — 기존 .xlsx/.crdownload 잔재를 제거한다."""
+        removed = 0
+        for pattern in ("*.xlsx", "*.crdownload"):
+            for f in downloads_dir.glob(pattern):
+                try:
+                    f.unlink()
+                    removed += 1
+                except Exception:
+                    logger.warning("기존 파일 삭제 실패: %s", f)
+        if removed:
+            logger.info("downloads 폴더 정리: %d개 파일 삭제", removed)
+
+    def _wait_for_download(self, downloads_dir: Path) -> Path | None:
+        """downloads_dir에 .xlsx가 나타나고 .crdownload가 없어질 때까지 폴링."""
+        for elapsed in range(_DOWNLOAD_TIMEOUT):
+            xlsx_files = sorted(
+                downloads_dir.glob("*.xlsx"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            crdownload_files = list(downloads_dir.glob("*.crdownload"))
+            if xlsx_files and not crdownload_files:
+                logger.info("다운로드 감지: %s (경과 %d초)", xlsx_files[0].name, elapsed)
+                return xlsx_files[0]
+            time.sleep(1)
+        return None
 
     # ── 메인 다운로드 로직 ─────────────────────────────────────────────────
     def run(self):
@@ -87,11 +113,9 @@ class SharePointDownloader(QThread):
             self.progress_signal.emit(10, "Chrome 드라이버 초기화 중...")
             logger.info("SharePoint 다운로드 시작 (ID: %s)", self.nexon_id)
 
-            download_dir = str(Path.home() / "Downloads")
-            temp_path = os.path.join(download_dir, "sharepoint_schedule.xlsx")
-
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
+            downloads_dir = get_downloads_dir()
+            self._clean_downloads_dir(downloads_dir)
+            logger.info("다운로드 대상 폴더: %s", downloads_dir)
 
             options = Options()
             options.add_argument("--headless=new")
@@ -100,7 +124,7 @@ class SharePointDownloader(QThread):
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             prefs = {
-                "download.default_directory": download_dir,
+                "download.default_directory": str(downloads_dir),
                 "download.prompt_for_download": False,
                 "download.directory_upgrade": True,
                 "safebrowsing.enabled": True,
@@ -168,28 +192,22 @@ class SharePointDownloader(QThread):
                 By.XPATH, dl_btn_xpath, wait,
             )
 
-            # ── 다운로드 완료 대기 → AppData로 이동 ─────────────────────────
-            self.progress_signal.emit(95, "다운로드 완료 대기 중...")
-            timeout = 40
-            success = False
-            while timeout > 0:
-                if os.path.exists(temp_path) and not os.path.exists(temp_path + ".crdownload"):
-                    _DATA_DIR.mkdir(parents=True, exist_ok=True)
-                    if EXCEL_PATH.exists():
-                        EXCEL_PATH.unlink()
-                    shutil.move(temp_path, str(EXCEL_PATH))
-                    success = True
-                    break
-                time.sleep(1)
-                timeout -= 1
+            # ── 다운로드 완료 감지 (.crdownload 폴링) ─────────────────────────
+            self.progress_signal.emit(95, f"다운로드 완료 대기 중... (최대 {_DOWNLOAD_TIMEOUT}초)")
+            logger.info("downloads 폴더 폴링 시작: %s", downloads_dir)
+            found = self._wait_for_download(downloads_dir)
 
-            if success:
+            if found:
                 self.progress_signal.emit(100, "완료")
-                self.finished_signal.emit()
-                logger.info("SharePoint 엑셀 다운로드 완료: %s", EXCEL_PATH)
+                logger.info("SharePoint 엑셀 다운로드 완료: %s", found)
+                self.finished_signal.emit(str(found))
             else:
                 self._dump_debug(driver)
-                self.failed_signal.emit("다운로드 타임아웃 (40초 초과) — sp_error_shot.png 확인")
+                debug_dir = get_debug_dir()
+                self.failed_signal.emit(
+                    f"다운로드 타임아웃 ({_DOWNLOAD_TIMEOUT}초 초과)\n"
+                    f"디버그 스크린샷: {debug_dir / 'sp_error_shot.png'}"
+                )
 
         except Exception as exc:
             logger.exception("SharePoint 다운로드 실패")
