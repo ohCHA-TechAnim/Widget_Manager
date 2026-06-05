@@ -1,113 +1,41 @@
-STATUS: WAITING_USER
-
-## 작업 지시 — SharePoint 애드온 버그 수정 (다운로드 경로 일원화 + 타임아웃 + 재다운로드 + 일감 생성)
-
-작업자: 차승현. 회사 PC에서 실제 테스트 중. selenium 에러는 해결됐고 **로그인·엑셀 다운로드까지 성공**(파일이 실제로 받아짐). 그러나 아래 버그들이 있다.
-
-### 증상 (실측)
-
-1. **다운로드 타임아웃(40초 초과) 에러** 발생. 그런데 엑셀 파일은 실제로 **Chrome 기본 다운로드 폴더**에 받아져 있다. → 즉 다운로드는 됐는데 앱이 “받아진 파일”을 엉뚱한 경로에서 기다리다 타임아웃. **파일이 떨어지는 위치와 앱이 감시하는 위치가 다르다.**
-1. **일감 생성이 완료되지 않음.** (1번 때문에 파싱 단계로 못 넘어가는 것으로 추정.)
-1. **재다운로드 시 기존 파일/일감을 삭제하고 새로 받는 처리가 안 됨.** (두 번째 가져오기에서 기존 것 정리 실패.)
-
-### 해결 방향 (핵심)
-
-모든 앱 산출물을 **`%APPDATA%\Widget_Manager\` (= AppData/Roaming/Widget_Manager) 아래로 일원화**하고, 종류별 하위 폴더로 구분한다. 다운로드도 Chrome 기본 폴더가 아니라 이 앱 전용 폴더로 직접 받게 해서 “받는 위치 = 읽는 위치”를 일치시킨다.
-
-### 폴더 구조 (없으면 생성 — os.makedirs(exist_ok=True))
-
-```
-%APPDATA%\Widget_Manager\
-├── data\        # tasks.json 등 핵심 데이터 (기존 유지)
-├── logs\        # widget_manager.log (기존 유지)
-├── downloads\   # [신규] SharePoint 등에서 받은 엑셀 원본
-└── debug\       # [신규] sp_error_shot.png 등 디버그 스크린샷/덤프
-```
-
-- 경로 헬퍼를 한 곳에 두고(예: core/paths.py 또는 기존 경로 유틸), 모든 모듈이 이걸 쓰게. 하드코딩된 다운로드 경로/스크린샷 경로 전부 이걸로 교체.
-- 폴더가 없으면 자동 생성.
-
-### 할 일
-
-1. **앱 전용 경로 헬퍼 정리**
-- `%APPDATA%\Widget_Manager` 루트와 위 4개 하위 폴더(data/logs/downloads/debug) 경로를 반환하는 헬퍼 마련(없으면 생성). 기존에 data/logs 경로 잡는 코드가 있으면 거기에 downloads/debug 추가.
-1. **다운로드를 downloads 폴더로 직접 받기 (타임아웃 근본 해결)**
-- downloader.py(Selenium)에서 Chrome 옵션으로 **다운로드 기본 경로를 `%APPDATA%\Widget_Manager\downloads`로 지정**:
-  - `options.add_experimental_option("prefs", {"download.default_directory": <downloads경로>, "download.prompt_for_download": False, "download.directory_upgrade": True, "safebrowsing.enabled": True})`
-- 다운로드 완료 감지: 그 downloads 폴더에서 대상 확장자(.xlsx) 파일이 나타나고 **.crdownload(임시파일)가 사라질 때까지** 폴링. (Chrome은 받는 중엔 `*.crdownload`를 만든다.) 이 방식으로 “받아진 걸 확실히” 감지 → 40초 타임아웃 방지.
-- 타임아웃 값도 적절히(예: 60~90초) 두되, 핵심은 올바른 폴더를 감시하는 것.
-1. **재다운로드 시 정리 (idempotent)**
-- 가져오기 시작 시 downloads 폴더의 기존 대상 엑셀(또는 이전 다운로드 잔재 *.xlsx, *.crdownload)을 먼저 삭제하고 새로 받기. (또는 타임스탬프/고정 파일명으로 관리.)
-- 파싱 후 task_store에 넣을 때: **기존 `source=="sharepoint"` 일감을 전부 제거한 뒤 새로 추가**(중복 누적 금지). manual 일감은 절대 건드리지 말 것. (이미 1라운드에 이 로직을 의도했으니, 실제로 동작하는지 점검·수정.)
-1. **일감 생성 완료까지 흐름 잇기**
-- 다운로드 성공 → parser.parse_excel(받은 파일 경로) → task dict 목록 → task_store 갱신 → 뷰 자동 반영. 이 체인이 1번 타임아웃 때문에 끊겼을 것이므로, 2번 수정 후 끝까지 도달하는지 확인.
-- 완료 시 사용자에게 “N개 일감 가져옴” 안내. 0개면 “파일은 받았으나 파싱 0건 — 시트명/대상자/셀렉터 확인” 안내(셀렉터 교정은 별도).
-1. **디버그 산출물 경로도 통일**
-- sp_error_shot.png 등 스크린샷/page_source 덤프는 `%APPDATA%\Widget_Manager\debug\`로. 에러 메시지의 안내 경로도 실제 저장 위치와 일치하게 수정.
-1. **로깅**
-- 다운로드 시작/완료/감지된 파일 경로/파싱 건수/정리된 기존 일감 수를 logs에 남겨, 다음에 문제 생기면 로그만 봐도 추적되게. print 금지(logging만).
-
-### 빌드/배포
-
-- 수정 후 v0.2.1과 동일 방식으로 **onefile + 폴더 둘 다** 재빌드해서 **v0.2.2**로 릴리즈. (`core/updater.py` APP_VERSION=“0.2.2”, 태그 v0.2.2 일치.)
-- selenium 포함은 v0.2.1에서 됐으니 그 spec 유지.
-
-### 완료 후
-
-`## ❓ 질문`에 적기:
-
-- 바뀐 폴더 구조와 경로 헬퍼 위치
-- 다운로드 감지 방식(.crdownload 폴링) 적용 결과
-- 재다운로드 정리·sharepoint 일감 교체 로직 점검 결과
-- v0.2.2 Release URL
-- “회사 PC에서 v0.2.2 받아 재테스트: 가져오기 → downloads 폴더에 받기는지, 타임아웃 없이 일감 생성되는지, 두 번째 가져오기에서 기존 게 갈리는지 확인. 안 되면 그때 sp_error_shot.png와 widget_manager.log 내용 알려달라.”
-  그리고 STATUS: WAITING_USER.
-
-## ❓ 질문
-
-### 변경 요약
-
-**폴더 구조 (신규 추가)**
-```
-%APPDATA%\Widget_Manager\
-├── data\        # 기존 유지
-├── logs\        # 기존 유지
-├── downloads\   # [신규] Chrome이 직접 여기로 받음
-└── debug\       # [신규] sp_error_shot.png, sp_error_page.html
-```
-
-**경로 헬퍼 위치**: `utils/resource_path.py` 하단에 `get_downloads_dir()`, `get_debug_dir()`, `get_data_dir()`, `get_logs_dir()` 추가. `downloader.py`에서 이를 import해서 사용.
-
-**다운로드 감지 방식 (.crdownload 폴링)**  
-Chrome prefs에 `download.default_directory = downloads_dir` 지정 → 파일이 처음부터 올바른 폴더로 받힘. 완료 감지는 `*.xlsx` 존재 AND `*.crdownload` 없음 폴링 (타임아웃 60초). `finished_signal(str)` 로 실제 파일 경로를 파서에 전달.
-
-**재다운로드 정리·sharepoint 일감 교체**  
-다운로드 시작 전 `downloads/` 폴더의 `*.xlsx`, `*.crdownload` 전부 삭제. `_sync_tasks()` 에서 `source=="sharepoint"` 일감 전부 삭제 후 새 일감 추가 (기존 로직 유지·검증).
-
-**v0.2.2 Release URL**  
-https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.2  
-첨부 파일: `WidgetManager_v0.2.2_onefile.exe` (57.8 MB)
-
----
-
-회사 PC에서 v0.2.2 받아 재테스트 부탁드립니다:
-1. "SharePoint 일정 가져오기" 실행 → `downloads` 폴더에 엑셀이 받히는지
-2. 타임아웃 없이 일감이 생성되는지
-3. 두 번째 가져오기에서 기존 일감이 교체되는지
-
-안 되면 `AppData\Roaming\Widget_Manager\debug\sp_error_shot.png` 와 `logs\widget_manager.log` 내용을 알려주세요.
-
-## 💬 답변
-
+STATUS: PENDING
+작업 지시 — SharePoint 파일 탐색 실패 수정 + 로그인/비번 UX 개선 (v0.2.3)
+작업자: 차승현. 회사 PC 실테스트 중. v0.2.2로 다운로드 폴더 경로는 해결됨(이제 …\Widget_Manager\downloads로 잘 지정됨). 그러나 새 로그 분석 결과 아래 문제들이 남았다.
+증상 (실측 로그 분석)
+	1.	파일 탐색 실패 (핵심 막힘): 로그인 통과 후 “70% — ‘스케쥴_애니메이션팀(2026)’ 파일 탐색 중…” 단계에서, 해당 파일명을 페이지에서 못 찾고 no such element 404가 30초 이상 무한 반복하다 실패. 다운로드 단계까지 도달하지 못함.
+	•	사용한 xpath(로그 기준): //[contains(@title, '스케쥴_애니메이션팀(2026)')] | //[contains(text(), '스케쥴_애니메이션팀(2026)')]
+	•	주의: xpath가 //[ 로 시작한다. 올바른 문법은 //*[ 이다 (* 누락 의심). 이게 사실이면 문법 오류로 절대 못 찾는다. 먼저 이 부분부터 확인·수정하라.
+	2.	비밀번호 오입력 시 UX: 비번을 틀리면 빨간 에러 팝업이 뜨고 끝난다. 대신, 로그인 실패(비번 틀림)를 감지하면 “비밀번호가 틀렸습니다. 다시 입력해주세요” 하고 비번 입력 창을 다시 띄워 재시도하게 해달라.
+할 일
+	1.	xpath 문법 점검·수정 (최우선)
+	•	downloader.py에서 파일을 찾는 xpath를 점검. //[contains(...)] → //*[contains(...)] 로 (* 빠졌으면 추가). title/text 둘 다 //*[contains(@title, ...)] / //*[contains(text(), ...)] 형태로.
+	•	가능하면 부분 매칭을 더 견고하게: 파일명 전체가 아니라 핵심 키워드(예: “애니메이션팀”)만으로도 찾도록 하거나, 사용자가 설정한 검색어를 부분 포함(contains)으로 매칭. 정확한 전체 파일명 일치를 요구하지 말 것(괄호/연도/띄어쓰기 차이로 실패하기 쉬움).
+	2.	파일 못 찾을 때 진단 강화
+	•	파일 탐색 실패 시, 현재 페이지의 HTML(또는 보이는 파일명 목록)을 debug 폴더에 덤프하고, 스크린샷도 저장. 로그에 “찾으려는 검색어: ‘XXX’” 와 “페이지에서 발견된 파일 후보 목록”을 남겨라. → 그래야 실제 파일명과 검색어가 왜 다른지 다음에 바로 안다.
+	•	에러 메시지(팝업)에 “검색어 ‘XXX’로 파일을 못 찾았다. 설정의 파일 검색어가 SharePoint의 실제 파일명과 일치하는지 확인하라. (debug 폴더에 페이지 덤프 저장됨)“을 안내.
+	3.	로그인 실패(비번 오입력) 감지 + 재입력 UX
+	•	로그인 시도 후, MS 로그인 페이지의 오류 표시(예: 비번 필드 에러, “암호가 잘못되었습니다” 메시지, 여전히 passwd 필드가 남아있음 등)를 감지한다.
+	•	비번 오류로 판단되면: 빨간 에러로 끝내지 말고, QInputDialog(비밀번호 모드)로 “비밀번호가 올바르지 않습니다. 다시 입력해주세요”를 띄워 재입력 받고 로그인 재시도.
+	•	재시도 횟수 상한(예: 3회). 3회 모두 실패하면 그때 “로그인 실패 — 비번/계정 확인” 안내하고 종료.
+	•	비번은 여전히 저장하지 않는다(메모리에서만 사용).
+	4.	단계별 대기(로딩) 점검
+	•	로그인 후 파일 목록(SharePoint 페이지)이 실제로 렌더된 뒤 파일 탐색을 시작하도록, 적절한 명시적 대기(WebDriverWait) 추가. 페이지 전환 직후 곧바로 찾기 시작해서 생기는 조기 실패 방지.
+	5.	빌드/배포
+	•	APP_VERSION=“0.2.3”, onefile + 폴더 둘 다 재빌드, 태그 v0.2.3으로 릴리즈. (selenium 포함 spec 유지.)
+이번엔 하지 말 것
+	•	Outlook(다음 라운드).
+	•	엑셀 파싱 로직 변경 — 아직 파일을 못 받았으니 파싱은 건드릴 필요 없다. 다운로드 성공이 먼저.
+완료 후
+## ❓ 질문에 적기:
+	•	xpath 수정 내용(* 누락이 맞았는지)
+	•	비번 재입력 UX 적용 결과
+	•	파일 탐색 실패 시 debug 덤프가 어디 저장되는지
+	•	v0.2.3 Release URL
+	•	“회사 PC에서 v0.2.3 받아 재테스트. 또 파일 못 찾으면 debug 폴더의 페이지 덤프와 실제 파일명을 알려달라(검색어와 실제 파일명 비교 필요). 비번 일부러 틀려서 재입력 창 뜨는지도 확인 바람.”
+그리고 STATUS: WAITING_USER.
+❓ 질문
+(Claude가 채움)
+💬 답변
 (사용자가 채움)
-
-## ✅ 완료 노트
-
-- `utils/resource_path.py`: `get_downloads_dir()` / `get_debug_dir()` 헬퍼 추가, 폴더 자동 생성
-- `downloader.py`: Chrome prefs → downloads 폴더 직접 수신, .crdownload 폴링(60s), `_clean_downloads_dir()` 재다운로드 사전 정리, `_dump_debug` → debug 폴더, `finished_signal(str)` 파일 경로 전달
-- `__init__.py`: `_on_download_finished(excel_path: str)` 슬롯 변경, 0건 경고 추가, 에러 메시지 debug 경로로 수정
-- `core/updater.py`: APP_VERSION = "0.2.2"
-- `widget_manager_onefile.spec`: name = "WidgetManager_v0.2.2_onefile"
-- `build.ps1`: 버전 0.2.1 → 0.2.2
-- 빌드: 폴더형 130.3 MB, onefile 57.8 MB — 둘 다 성공
-- 커밋: d9ef5eb, 태그/릴리즈: v0.2.2
+✅ 완료 노트
+(Claude가 채움)
