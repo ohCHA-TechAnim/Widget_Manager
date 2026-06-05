@@ -1,4 +1,4 @@
-STATUS: PENDING
+STATUS: WAITING_USER
 
 ## 작업 지시 — SharePoint 애드온 버그 수정 (다운로드 경로 일원화 + 타임아웃 + 재다운로드 + 일감 생성)
 
@@ -65,7 +65,37 @@ STATUS: PENDING
 
 ## ❓ 질문
 
-(Claude가 채움)
+### 변경 요약
+
+**폴더 구조 (신규 추가)**
+```
+%APPDATA%\Widget_Manager\
+├── data\        # 기존 유지
+├── logs\        # 기존 유지
+├── downloads\   # [신규] Chrome이 직접 여기로 받음
+└── debug\       # [신규] sp_error_shot.png, sp_error_page.html
+```
+
+**경로 헬퍼 위치**: `utils/resource_path.py` 하단에 `get_downloads_dir()`, `get_debug_dir()`, `get_data_dir()`, `get_logs_dir()` 추가. `downloader.py`에서 이를 import해서 사용.
+
+**다운로드 감지 방식 (.crdownload 폴링)**  
+Chrome prefs에 `download.default_directory = downloads_dir` 지정 → 파일이 처음부터 올바른 폴더로 받힘. 완료 감지는 `*.xlsx` 존재 AND `*.crdownload` 없음 폴링 (타임아웃 60초). `finished_signal(str)` 로 실제 파일 경로를 파서에 전달.
+
+**재다운로드 정리·sharepoint 일감 교체**  
+다운로드 시작 전 `downloads/` 폴더의 `*.xlsx`, `*.crdownload` 전부 삭제. `_sync_tasks()` 에서 `source=="sharepoint"` 일감 전부 삭제 후 새 일감 추가 (기존 로직 유지·검증).
+
+**v0.2.2 Release URL**  
+https://github.com/ohCHA-TechAnim/Widget_Manager/releases/tag/v0.2.2  
+첨부 파일: `WidgetManager_v0.2.2_onefile.exe` (57.8 MB)
+
+---
+
+회사 PC에서 v0.2.2 받아 재테스트 부탁드립니다:
+1. "SharePoint 일정 가져오기" 실행 → `downloads` 폴더에 엑셀이 받히는지
+2. 타임아웃 없이 일감이 생성되는지
+3. 두 번째 가져오기에서 기존 일감이 교체되는지
+
+안 되면 `AppData\Roaming\Widget_Manager\debug\sp_error_shot.png` 와 `logs\widget_manager.log` 내용을 알려주세요.
 
 ## 💬 답변
 
@@ -73,4 +103,11 @@ STATUS: PENDING
 
 ## ✅ 완료 노트
 
-(Claude가 채움)
+- `utils/resource_path.py`: `get_downloads_dir()` / `get_debug_dir()` 헬퍼 추가, 폴더 자동 생성
+- `downloader.py`: Chrome prefs → downloads 폴더 직접 수신, .crdownload 폴링(60s), `_clean_downloads_dir()` 재다운로드 사전 정리, `_dump_debug` → debug 폴더, `finished_signal(str)` 파일 경로 전달
+- `__init__.py`: `_on_download_finished(excel_path: str)` 슬롯 변경, 0건 경고 추가, 에러 메시지 debug 경로로 수정
+- `core/updater.py`: APP_VERSION = "0.2.2"
+- `widget_manager_onefile.spec`: name = "WidgetManager_v0.2.2_onefile"
+- `build.ps1`: 버전 0.2.1 → 0.2.2
+- 빌드: 폴더형 130.3 MB, onefile 57.8 MB — 둘 다 성공
+- 커밋: d9ef5eb, 태그/릴리즈: v0.2.2
