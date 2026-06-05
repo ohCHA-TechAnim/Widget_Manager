@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame,
 )
 from PyQt6.QtCore import Qt, QEvent, pyqtSignal
-from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtGui import QGuiApplication, QCursor
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,22 @@ _PANEL_H = 370
 _MARGIN = 12
 
 _STATUS_KO = {"todo": "예정", "doing": "진행", "done": "완료"}
+
+
+class _TaskLabel(QLabel):
+    """더블클릭으로 일감 상세보기를 여는 레이블."""
+
+    double_clicked = pyqtSignal(dict)
+
+    def __init__(self, task: dict, text: str, parent=None):
+        super().__init__(text, parent)
+        self._task = task
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.setToolTip("더블클릭: 상세보기")
+
+    def mouseDoubleClickEvent(self, event):
+        self.double_clicked.emit(self._task)
+        super().mouseDoubleClickEvent(event)
 
 
 class OverlayPanel(QWidget):
@@ -31,6 +47,7 @@ class OverlayPanel(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint,
         )
         self._store = store
+        self._popup_active = False
         self.setObjectName("overlay_panel")
         self.setFixedSize(_PANEL_W, _PANEL_H)
         self._build_ui()
@@ -145,8 +162,9 @@ class OverlayPanel(QWidget):
                 title = t["title"]
                 if len(title) > 22:
                     title = title[:21] + "…"
-                lbl = QLabel(f"• [{status}] {title}")
+                lbl = _TaskLabel(t, f"• [{status}] {title}")
                 lbl.setObjectName("overlay_task_item")
+                lbl.double_clicked.connect(self._show_task_detail)
                 self._today_layout.addWidget(lbl)
         else:
             lbl = QLabel("  오늘 일감 없음")
@@ -166,8 +184,9 @@ class OverlayPanel(QWidget):
                 title = t["title"]
                 if len(title) > 20:
                     title = title[:19] + "…"
-                lbl = QLabel(f"• [{mm_dd}] {title}")
+                lbl = _TaskLabel(t, f"• [{mm_dd}] {title}")
                 lbl.setObjectName("overlay_task_item")
+                lbl.double_clicked.connect(self._show_task_detail)
                 self._upcoming_layout.addWidget(lbl)
         else:
             lbl = QLabel("  다가오는 일감 없음")
@@ -177,6 +196,16 @@ class OverlayPanel(QWidget):
     def _on_store_changed(self):
         if self.isVisible():
             self.refresh()
+
+    def _show_task_detail(self, task: dict):
+        """일감 더블클릭 시 상세보기 팝업 (팝업 동안 자동숨김 일시 정지)."""
+        from views.task_dialog import TaskDialog
+        self._popup_active = True
+        try:
+            dlg = TaskDialog(self._store, task=task, parent=None)
+            dlg.exec()
+        finally:
+            self._popup_active = False
 
     # ── 위치 ───────────────────────────────────────────────────────
     def _move_to_bottom_right(self):
@@ -192,7 +221,9 @@ class OverlayPanel(QWidget):
         self._move_to_bottom_right()
 
     def changeEvent(self, event):
-        """다른 창이 활성화되면 자동으로 패널을 숨긴다."""
+        """다른 창이 활성화되면 자동으로 패널을 숨긴다 (팝업 열림 중에는 유지)."""
         super().changeEvent(event)
-        if event.type() == QEvent.Type.ActivationChange and not self.isActiveWindow():
+        if (event.type() == QEvent.Type.ActivationChange
+                and not self.isActiveWindow()
+                and not self._popup_active):
             self.hide()

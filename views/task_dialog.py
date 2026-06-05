@@ -1,5 +1,7 @@
 """일감 편집 다이얼로그 — 새 일감 추가 및 기존 일감 수정"""
 import logging
+import os
+import webbrowser
 from datetime import date
 from pathlib import Path
 
@@ -187,10 +189,16 @@ class TaskDialog(QDialog):
 
         self._jira_list = self._add_list_section(root, "지라 링크",
                                                   self._add_jira)
+        self._jira_list.itemDoubleClicked.connect(self._open_item)
+
         self._folder_list = self._add_list_section(root, "폴더 링크",
                                                     self._add_folder)
+        self._folder_list.itemDoubleClicked.connect(self._open_item)
+
         self._attach_list = self._add_list_section(root, "첨부 파일",
                                                     self._add_attachment)
+        self._attach_list.itemDoubleClicked.connect(self._open_item)
+
         root.addStretch()
         return w
 
@@ -296,6 +304,21 @@ class TaskDialog(QDialog):
     def _remove_selected(self, lst: QListWidget):
         for item in lst.selectedItems():
             lst.takeItem(lst.row(item))
+
+    def _open_item(self, item: QListWidgetItem):
+        """링크/첨부 파일 더블클릭 시 열기."""
+        data = item.data(Qt.ItemDataRole.UserRole)
+        path = data["path"] if isinstance(data, dict) else str(data or "")
+        if not path:
+            return
+        try:
+            if path.startswith(("http://", "https://")):
+                webbrowser.open(path)
+            else:
+                os.startfile(path)
+        except Exception as exc:
+            QMessageBox.warning(self, "열기 실패",
+                                f"경로를 열 수 없습니다.\n\n{path}\n\n{exc}")
 
     # ------------------------------------------------------------------ #
     # 저장 / 삭제

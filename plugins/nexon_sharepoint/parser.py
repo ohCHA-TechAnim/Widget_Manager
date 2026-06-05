@@ -8,6 +8,7 @@ import logging
 import re
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,54 @@ def _argb_to_css(rgb_val) -> str:
 def _ratio(part: int, whole: int) -> float:
     """0 나눗셈 방어 비율. whole이 0이면 0.0."""
     return part / whole if whole > 0 else 0.0
+
+
+# ── 엑셀 시스템 텍스트 제거 ──────────────────────────────────────────────────────
+
+# 엑셀 더미 URL 패턴 (go.microsoft.com/fwlink)
+_EXCEL_DUMMY_URL_RE = re.compile(r'https?://go\.microsoft\.com/fwlink[^\s]*', re.IGNORECASE)
+
+def _clean_excel_comment(text: str) -> str:
+    """엑셀 스레드 댓글 안내문을 제거. 알려진 패턴만 제거, 나머지는 보존."""
+    # [Threaded comment] 제거
+    text = re.sub(r'\[Threaded comment\]\s*', '', text)
+    # "Your version of Excel ... Learn more:" 패턴 제거 (한/영 혼용 대비 넉넉하게)
+    text = re.sub(
+        r'Your version of Excel[^.]*\..*?Learn more:\s*',
+        '', text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    # go.microsoft.com/fwlink 더미 URL 제거
+    text = _EXCEL_DUMMY_URL_RE.sub('', text)
+    # 3줄 이상 연속 빈 줄 정리
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _infer_link_name(path: str) -> str:
+    """URL/경로에서 표시용 이름 추론. 이름 지정이 없을 때 기본값으로 사용."""
+    if not path:
+        return ""
+    if path.startswith(("http://", "https://")):
+        try:
+            parsed = urlparse(path)
+            segments = [s for s in parsed.path.strip("/").split("/") if s]
+            if segments:
+                return segments[-1]
+            return parsed.netloc
+        except Exception:
+            return path
+    # 로컬 경로 → 파일/폴더명
+    return Path(path).name or path
+
+
+def _status_default_color(status: str) -> str:
+    """상태별 기본 색상 (SharePoint 일감에 유효한 색이 없을 때 사용)."""
+    if status == "doing":
+        return "#C8803A"   # 중간 앰버 — 진행 중
+    if status == "done":
+        return "#7A7A8A"   # 차분한 회색 — 완료
+    return "#5A8F6A"       # 중간 녹색 — 예정(todo/default)
 
 
 # ── 상태·태그 파싱 ─────────────────────────────────────────────────────────────
@@ -262,18 +311,21 @@ def parse_excel(
                     active_memo = ""
                     active_jiras = []
                     if tc_comment and getattr(tc_comment, "text", None):
-                        cmt = _safe_text(tc_comment.text).strip()
+                        cmt = _clean_excel_comment(_safe_text(tc_comment.text))
                         for url in re.findall(r"https?://[^\s]+", cmt):
-                            if url not in active_jiras:
+                            # go.microsoft.com/fwlink 더미 URL 제외
+                            if "go.microsoft.com/fwlink" not in url and url not in active_jiras:
                                 active_jiras.append(url)
                         cmt_clean = re.sub(r"https?://[^\s]+", "", cmt).strip()
                         if cmt_clean:
                             active_memo = cmt_clean
 
-                    # 하이퍼링크 → Jira
+                    # 셀 실제 하이퍼링크 우선 추출 (더미 링크 제외)
                     if tc_hyperlink and getattr(tc_hyperlink, "target", None):
                         tgt = _safe_text(tc_hyperlink.target).strip()
-                        if tgt and tgt not in active_jiras:
+                        if (tgt
+                                and "go.microsoft.com/fwlink" not in tgt
+                                and tgt not in active_jiras):
                             active_jiras.append(tgt)
                 else:
                     active_task = None
@@ -303,7 +355,13 @@ def parse_excel(
 
         # 전체 팀원의 90% 이상 동일 일감 → 공유 공동 일감 #00BFFF
         is_shared = _ratio(match_count, len(worker_rows)) >= 0.9
-        final_color = "#00BFFF" if is_shared else active_color
+        if is_shared:
+            final_color = "#00BFFF"
+        elif active_color in ("", "#000000", "#FFFFFF"):
+            # 유효한 셀 색상 없음 → 상태별 기본색 적용
+            final_color = _status_default_color(active_status)
+        else:
+            final_color = active_color
 
         day_entries.append({
             "date": date_obj,
@@ -347,7 +405,7 @@ def parse_excel(
         if first["release"]:
             memo = (f"[릴리즈: {first['release']}]\n" + memo).strip()
 
-        jiras = [{"name": j, "path": j} for j in first["jiras"]]
+        jiras = [{"name": _infer_link_name(j), "path": j} for j in first["jiras"]]
 
         result.append({
             "title": first["task"],
