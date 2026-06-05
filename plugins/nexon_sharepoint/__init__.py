@@ -163,6 +163,7 @@ class NexonSharePointPlugin(PluginBase):
             mw.statusBar().showMessage(f"SharePoint: {message} ({percent}%)", 0)
 
     def _on_download_finished(self, excel_path: str):
+        from pathlib import Path as _Path
         logger.info("SharePoint 다운로드 완료 — 파싱 시작: %s", excel_path)
         mw = self._ctx.main_window if self._ctx else None
         if mw and hasattr(mw, "statusBar"):
@@ -176,15 +177,45 @@ class NexonSharePointPlugin(PluginBase):
                 QMessageBox.critical(mw, "파서 오류", f"파서를 로드할 수 없습니다: {exc}")
             return
 
-        tasks = parse_excel(
-            excel_path=excel_path,
-            target_name=self._pending_target,
-            sheet_name=self._pending_sheet,
-            target_year=date.today().year,
-        )
+        # ── 파싱 + 동기화 전체를 격리 — 어떤 예외도 앱을 죽이지 않는다 ──────
+        try:
+            tasks = parse_excel(
+                excel_path=_Path(excel_path),
+                target_name=self._pending_target,
+                sheet_name=self._pending_sheet,
+                target_year=date.today().year,
+            )
+        except Exception:
+            logger.exception("SharePoint 엑셀 파싱 중 예외 발생 (파일: %s)", excel_path)
+            if mw and hasattr(mw, "statusBar"):
+                mw.statusBar().showMessage("SharePoint 파싱 실패 — 로그 확인", 5000)
+            if mw:
+                QMessageBox.critical(
+                    mw,
+                    "파싱 오류",
+                    "엑셀 파싱 중 오류가 발생했습니다. 앱은 정상 유지됩니다.\n\n"
+                    "전체 오류 내용:\n"
+                    "  widget_manager.log → 'SharePoint 엑셀 파싱 중 예외' 부분\n\n"
+                    f"파일: {excel_path}",
+                )
+            return
+
         logger.info("SharePoint 파싱 완료: %d건", len(tasks))
 
-        self._sync_tasks(tasks)
+        try:
+            self._sync_tasks(tasks)
+        except Exception:
+            logger.exception("SharePoint 일감 동기화 중 예외 발생")
+            if mw and hasattr(mw, "statusBar"):
+                mw.statusBar().showMessage("SharePoint 동기화 실패 — 로그 확인", 5000)
+            if mw:
+                QMessageBox.critical(
+                    mw,
+                    "동기화 오류",
+                    "일감 저장 중 오류가 발생했습니다.\n"
+                    "widget_manager.log를 확인하세요.",
+                )
+            return
 
         if mw and hasattr(mw, "statusBar"):
             mw.statusBar().showMessage(
@@ -203,9 +234,10 @@ class NexonSharePointPlugin(PluginBase):
                 "SharePoint 일정 가져오기",
                 "파일은 받았으나 파싱 결과가 0건입니다.\n\n"
                 "확인 사항:\n"
-                "• 시트 이름이 설정과 일치하는지\n"
+                "• 시트 이름이 설정과 일치하는지 (로그에 시트 목록 있음)\n"
                 "• 대상자 이름이 엑셀 내 표기와 일치하는지\n"
-                "• 셀렉터(열 구조) 변경 여부",
+                "• 셀렉터(열 구조) 변경 여부\n\n"
+                "로그 파일: AppData\\Roaming\\Widget_Manager\\logs\\widget_manager.log",
             )
 
     def _on_download_failed(self, error_msg: str):

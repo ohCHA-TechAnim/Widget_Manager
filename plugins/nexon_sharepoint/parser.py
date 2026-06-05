@@ -86,6 +86,9 @@ def parse_excel(
     - 90% 이상의 팀원이 동일 일감 → 색상 #00BFFF (TaskHub 검증 규칙 유지)
     - 셀 접두사(진)/완)) 로 status 감지
     """
+    # str로 전달되는 경우를 방어적으로 처리
+    excel_path = Path(excel_path)
+
     try:
         import openpyxl
     except ImportError:
@@ -102,14 +105,30 @@ def parse_excel(
         logger.exception("엑셀 파일 열기 실패: %s", excel_path)
         return []
 
-    if sheet_name not in wb.sheetnames:
-        logger.error("시트 '%s' 없음. 사용 가능: %s", sheet_name, wb.sheetnames)
-        return []
+    # ── 시트 진단 로깅 ────────────────────────────────────────────────────
+    logger.info("워크북 열기 성공: %s", excel_path.name)
+    logger.info("시트 목록 (%d개): %s", len(wb.sheetnames), wb.sheetnames)
 
+    # 시트명 불일치 시 첫 번째 시트로 폴백
+    if sheet_name not in wb.sheetnames:
+        fallback = wb.sheetnames[0] if wb.sheetnames else None
+        if fallback is None:
+            logger.error("시트 없음 — 파싱 중단")
+            return []
+        logger.warning(
+            "설정 시트 '%s' 없음 → 첫 번째 시트 '%s'로 폴백. "
+            "사용 가능한 시트: %s",
+            sheet_name, fallback, wb.sheetnames,
+        )
+        sheet_name = fallback
+
+    logger.info("사용 시트: '%s'", sheet_name)
     ws = wb[sheet_name]
     rows = list(ws.iter_rows())
+    logger.info("시트 크기: %d행 × %d열", len(rows), len(rows[0]) if rows else 0)
+
     if len(rows) < 3:
-        logger.error("엑셀 행 수 부족 (%d행)", len(rows))
+        logger.error("엑셀 행 수 부족 (%d행) — 최소 3행 필요", len(rows))
         return []
 
     r1_cells = rows[0]   # 월 헤더 행
@@ -147,16 +166,23 @@ def parse_excel(
 
     # ── 병합 셀 룩업 테이블 (TaskHub 검증 패턴 그대로) ──────────────────────
     merged_lookup: dict = {}
-    for crange in ws.merged_cells.ranges:
-        clo, rlo, chi, rhi = crange.bounds
-        top_cell = ws.cell(row=rlo, column=clo)
-        top_val = top_cell.value
-        top_comment = top_cell.comment
-        top_hyperlink = top_cell.hyperlink
-        top_fill = top_cell.fill
-        for r in range(rlo, rhi + 1):
-            for c in range(clo, chi + 1):
-                merged_lookup[(r, c)] = (top_val, top_comment, top_hyperlink, top_fill)
+    try:
+        for crange in ws.merged_cells.ranges:
+            try:
+                clo, rlo, chi, rhi = crange.bounds
+                top_cell = ws.cell(row=rlo, column=clo)
+                top_val = top_cell.value
+                top_comment = top_cell.comment
+                top_hyperlink = top_cell.hyperlink
+                top_fill = top_cell.fill
+                for r in range(rlo, rhi + 1):
+                    for c in range(clo, chi + 1):
+                        merged_lookup[(r, c)] = (top_val, top_comment, top_hyperlink, top_fill)
+            except Exception:
+                logger.warning("병합 셀 처리 오류 (건너뜀): %s", crange, exc_info=True)
+    except Exception:
+        logger.warning("병합 셀 전체 처리 오류 — 병합 셀 없이 계속", exc_info=True)
+    logger.info("병합 셀 룩업 구축 완료: %d개 항목", len(merged_lookup))
 
     # ── 날짜별 일감 수집 ────────────────────────────────────────────────────
     day_entries: list[dict] = []
@@ -168,85 +194,98 @@ def parse_excel(
     active_jiras: list[str] = []
     month_matched: int | None = None
 
+    _skipped_cols = 0
     for col_idx in range(len(r3_cells)):
-        c1 = r1_cells[col_idx] if col_idx < len(r1_cells) else None
-        c3 = r3_cells[col_idx] if col_idx < len(r3_cells) else None
-        c1_val = _safe_text(c1.value) if c1 else ""
-        c3_val = _safe_text(c3.value) if c3 else ""
-
-        # 월 헤더 감지
-        if c1_val:
-            m = re.search(r'(\d+)월', c1_val)
-            if m:
-                month_matched = int(m.group(1))
-
-        if not month_matched or not c3_val:
-            continue
-
-        m_day = re.search(r'^(\d+)', c3_val)
-        if not m_day:
-            continue
-
-        d = int(m_day.group(1))
         try:
-            date_obj = date(target_year, month_matched, d)
-        except ValueError:
-            continue
+            c1 = r1_cells[col_idx] if col_idx < len(r1_cells) else None
+            c3 = r3_cells[col_idx] if col_idx < len(r3_cells) else None
+            c1_val = _safe_text(c1.value) if c1 else ""
+            c3_val = _safe_text(c3.value) if c3 else ""
 
-        # 대상자 셀 읽기 (병합 셀 우선)
-        tc_row = target_row_idx + 1
-        tc_col = col_idx + 1
-        if (tc_row, tc_col) in merged_lookup:
-            m_val, m_comment, m_hyperlink, m_fill = merged_lookup[(tc_row, tc_col)]
-            tc_val = _safe_text(m_val)
-            tc_comment = m_comment
-            tc_hyperlink = m_hyperlink
-            tc_fill = m_fill
-        else:
-            tc = target_cells[col_idx] if col_idx < max_col else None
-            tc_val = _safe_text(tc.value) if tc else ""
-            tc_comment = tc.comment if tc else None
-            tc_hyperlink = tc.hyperlink if tc else None
-            tc_fill = tc.fill if tc else None
+            # 월 헤더 감지
+            if c1_val:
+                m = re.search(r'(\d+)월', c1_val)
+                if m:
+                    month_matched = int(m.group(1))
 
-        # 셀 내용 파싱
-        if tc_val:
-            t_raw = tc_val.strip()
-            if t_raw and t_raw.lower() not in ("none", "-"):
-                active_status = _detect_status(t_raw)
-                t_clean = _strip_prefix(t_raw)
-                active_release, t_clean = _strip_release(t_clean)
-                t_clean = t_clean.strip()
-                active_task = t_clean if t_clean else None
+            if not month_matched or not c3_val:
+                continue
 
-                # 색상
-                active_color = ""
-                if tc_fill and hasattr(tc_fill, "start_color") and tc_fill.start_color:
-                    active_color = _argb_to_css(tc_fill.start_color.rgb)
+            m_day = re.search(r'^(\d+)', c3_val)
+            if not m_day:
+                continue
 
-                # 코멘트 → 메모 + Jira
-                active_memo = ""
-                active_jiras = []
-                if tc_comment and getattr(tc_comment, "text", None):
-                    cmt = _safe_text(tc_comment.text).strip()
-                    for url in re.findall(r"https?://[^\s]+", cmt):
-                        if url not in active_jiras:
-                            active_jiras.append(url)
-                    cmt_clean = re.sub(r"https?://[^\s]+", "", cmt).strip()
-                    if cmt_clean:
-                        active_memo = cmt_clean
+            d = int(m_day.group(1))
+            try:
+                date_obj = date(target_year, month_matched, d)
+            except ValueError:
+                logger.debug("날짜 파싱 실패 — %d월 %d일 (건너뜀)", month_matched, d)
+                continue
 
-                # 하이퍼링크 → Jira
-                if tc_hyperlink and getattr(tc_hyperlink, "target", None):
-                    tgt = _safe_text(tc_hyperlink.target).strip()
-                    if tgt and tgt not in active_jiras:
-                        active_jiras.append(tgt)
+            # 대상자 셀 읽기 (병합 셀 우선)
+            tc_row = target_row_idx + 1
+            tc_col = col_idx + 1
+            if (tc_row, tc_col) in merged_lookup:
+                m_val, m_comment, m_hyperlink, m_fill = merged_lookup[(tc_row, tc_col)]
+                tc_val = _safe_text(m_val)
+                tc_comment = m_comment
+                tc_hyperlink = m_hyperlink
+                tc_fill = m_fill
             else:
-                active_task = None
-        # tc_val이 빈 경우: active_task 유지 (뒤에 tc_val 조건으로 기록 여부 결정)
+                tc = target_cells[col_idx] if col_idx < max_col else None
+                tc_val = _safe_text(tc.value) if tc else ""
+                tc_comment = tc.comment if tc else None
+                tc_hyperlink = tc.hyperlink if tc else None
+                tc_fill = tc.fill if tc else None
 
-        # 실제 내용이 있는 셀만 기록 (빈 셀 = 주말/공백은 건너뜀)
-        if not active_task or not tc_val:
+            # 셀 내용 파싱
+            if tc_val:
+                t_raw = tc_val.strip()
+                if t_raw and t_raw.lower() not in ("none", "-"):
+                    active_status = _detect_status(t_raw)
+                    t_clean = _strip_prefix(t_raw)
+                    active_release, t_clean = _strip_release(t_clean)
+                    t_clean = t_clean.strip()
+                    active_task = t_clean if t_clean else None
+
+                    # 색상 — GradientFill 등 예상치 못한 fill 타입에 방어적으로 접근
+                    active_color = ""
+                    try:
+                        if tc_fill and hasattr(tc_fill, "start_color") and tc_fill.start_color:
+                            rgb_val = getattr(tc_fill.start_color, "rgb", None)
+                            if rgb_val:
+                                active_color = _argb_to_css(rgb_val)
+                    except Exception:
+                        pass  # 색상 읽기 실패는 무시
+
+                    # 코멘트 → 메모 + Jira
+                    active_memo = ""
+                    active_jiras = []
+                    if tc_comment and getattr(tc_comment, "text", None):
+                        cmt = _safe_text(tc_comment.text).strip()
+                        for url in re.findall(r"https?://[^\s]+", cmt):
+                            if url not in active_jiras:
+                                active_jiras.append(url)
+                        cmt_clean = re.sub(r"https?://[^\s]+", "", cmt).strip()
+                        if cmt_clean:
+                            active_memo = cmt_clean
+
+                    # 하이퍼링크 → Jira
+                    if tc_hyperlink and getattr(tc_hyperlink, "target", None):
+                        tgt = _safe_text(tc_hyperlink.target).strip()
+                        if tgt and tgt not in active_jiras:
+                            active_jiras.append(tgt)
+                else:
+                    active_task = None
+            # tc_val이 빈 경우: active_task 유지 (뒤에 tc_val 조건으로 기록 여부 결정)
+
+            # 실제 내용이 있는 셀만 기록 (빈 셀 = 주말/공백은 건너뜀)
+            if not active_task or not tc_val:
+                continue
+
+        except Exception:
+            _skipped_cols += 1
+            logger.warning("열 %d 처리 중 예외 — 건너뜀", col_idx, exc_info=True)
             continue
 
         # 90% 공동 일감 판정 (TaskHub 검증 로직 유지)
@@ -276,8 +315,11 @@ def parse_excel(
             "jiras": list(active_jiras),
         })
 
+    if _skipped_cols:
+        logger.warning("열 처리 중 오류로 건너뜀: %d개 열", _skipped_cols)
+
     if not day_entries:
-        logger.info("파싱 결과 없음 (대상자: %s)", target_name)
+        logger.info("파싱 결과 없음 (대상자: %s, 시트: %s)", target_name, sheet_name)
         return []
 
     # ── 연속 날짜 → start/end 통합 ──────────────────────────────────────────

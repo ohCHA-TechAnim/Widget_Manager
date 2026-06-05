@@ -23,6 +23,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def _unhandled_exception_hook(exc_type, exc_value, exc_traceback):
+    """처리되지 않은 예외를 로그에 기록하고 앱이 조용히 죽지 않도록 한다."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.exception(
+        "처리되지 않은 예외 — 앱이 종료될 수 있습니다",
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
+
+
+sys.excepthook = _unhandled_exception_hook
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QStackedWidget, QPushButton, QWidget,
     QSystemTrayIcon, QMenu,
